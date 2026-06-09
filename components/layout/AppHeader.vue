@@ -14,7 +14,28 @@
       <div class="header-actions">
         <ClientOnly>
           <template v-if="isAuthenticated">
-            <NuxtLink to="/center">{{ nickname || username }}</NuxtLink>
+            <el-dropdown trigger="click" @command="onUserMenuCommand">
+              <span class="user-trigger">
+                <span class="user-trigger__name">{{ nickname || username }}</span>
+                <el-icon class="user-trigger__icon"><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="center">
+                    <el-icon><HomeFilled /></el-icon>
+                    个人中心
+                  </el-dropdown-item>
+                  <el-dropdown-item command="profile">
+                    <el-icon><User /></el-icon>
+                    个人资料
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
           <template v-else>
             <NuxtLink to="/login">登录</NuxtLink>
@@ -29,9 +50,23 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowDown, HomeFilled, SwitchButton, User } from '@element-plus/icons-vue'
+
 const config = useRuntimeConfig()
 const siteName = computed(() => config.public.siteName || 'ch-wiki')
-const { isAuthenticated, username, nickname } = useAuth()
+const auth = useAuth()
+const { isAuthenticated, username, nickname } = auth
+const router = useRouter()
+
+function onUserMenuCommand(command: string) {
+  if (command === 'logout') {
+    auth.logout()
+  } else if (command === 'center') {
+    router.push('/center')
+  } else if (command === 'profile') {
+    router.push('/center/profile')
+  }
+}
 </script>
 
 <style scoped>
@@ -81,5 +116,30 @@ const { isAuthenticated, username, nickname } = useAuth()
   text-decoration: none;
   color: #606266;
   font-size: 14px;
+}
+.user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #606266;
+  font-size: 14px;
+  user-select: none;
+  outline: none;
+  transition: color 0.2s;
+}
+.user-trigger:hover,
+.user-trigger:focus {
+  color: #409eff;
+}
+.user-trigger__name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-trigger__icon {
+  font-size: 12px;
+  transition: transform 0.2s;
 }
 </style>

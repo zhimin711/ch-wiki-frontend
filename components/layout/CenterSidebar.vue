@@ -73,6 +73,13 @@
         </el-menu-item>
       </el-menu-item-group>
     </el-menu>
+
+    <div class="sidebar-footer">
+      <el-button class="logout-btn" text @click="onLogout">
+        <el-icon><SwitchButton /></el-icon>
+        <span>退出登录</span>
+      </el-button>
+    </div>
   </aside>
 </template>
 
@@ -89,15 +96,21 @@ import {
   Calendar,
   Clock,
   Key,
+  SwitchButton,
 } from '@element-plus/icons-vue'
 import { getInitials } from '~/composables/useAvatar'
 
 const route = useRoute()
 const activeMenu = computed(() => route.path)
 
-const { username, nickname, avatar } = useAuth()
+const auth = useAuth()
+const { username, nickname, avatar } = auth
 const displayName = computed(() => nickname.value || username.value || '未登录')
 const initial = computed(() => getInitials(displayName.value))
+
+function onLogout() {
+  auth.logout()
+}
 </script>
 
 <style scoped>
@@ -218,5 +231,27 @@ const initial = computed(() => getInitials(displayName.value))
 }
 :deep(.el-menu-item.is-active .el-icon) {
   color: var(--color-primary);
+}
+
+/* 底部退出登录 */
+.sidebar-footer {
+  margin: 8px -8px -8px;
+  padding: 8px 8px 0;
+  border-top: 1px solid var(--color-border);
+}
+.logout-btn {
+  width: 100%;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 8px 0;
+}
+.logout-btn:hover {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.06) !important;
+}
+.logout-btn .el-icon {
+  margin-right: 6px;
+  font-size: 15px;
 }
 </style>

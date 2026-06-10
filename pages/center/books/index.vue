@@ -41,7 +41,7 @@
       <el-table-column label="类型" width="90">
         <template #default="{ row }">{{ bookTypeLabel(row.type) }}</template>
       </el-table-column>
-      <el-table-column prop="classify" label="分类" width="130" />
+      <el-table-column prop="classifyName" label="分类" width="130" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status === '2' ? 'success' : 'info'">{{ bookStatusLabel(row.status) }}</el-tag>

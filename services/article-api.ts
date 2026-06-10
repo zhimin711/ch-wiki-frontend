@@ -64,7 +64,7 @@ export function useArticleApi() {
 
   return {
     async getArticleCategories() {
-      const { data: resp } = await client.get<ApiResult<APIClassifyDTO[]>>('/api/classifies/public', {
+      const { data: resp } = await client.get<ApiResult<APIClassifyDTO[]>>('/api/public/classify/list', {
         params: { bizType: 'article' },
       })
       return extractData(resp) || []

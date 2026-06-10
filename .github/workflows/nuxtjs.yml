@@ -12,6 +12,7 @@ on:
         description: "Docker Hub image name, for example username/ch-wiki-frontend. Defaults to vars.DOCKERHUB_REPOSITORY or github.repository."
         required: false
         type: string
+        default: "chaohua2025/ch-wiki-frontend"
       push_image:
         description: "Push the image to Docker Hub"
         required: false

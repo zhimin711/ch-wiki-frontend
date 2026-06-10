@@ -48,7 +48,32 @@
       </el-form-item>
 
       <el-form-item label="正文" prop="content">
-        <el-input v-model="form.content" type="textarea" :rows="18" />
+        <el-tabs v-model="activeTab" type="card" class="content-tabs">
+          <el-tab-pane label="富文本编辑" name="rich">
+            <ClientOnly>
+              <EditorRichTextEditor
+                v-model="htmlContent"
+                :height="editorHeight"
+                :upload-image-server="uploadImageServer"
+                :upload-image-headers="uploadImageHeaders"
+              />
+              <template #fallback>
+                <el-skeleton :rows="12" animated />
+              </template>
+            </ClientOnly>
+          </el-tab-pane>
+          <el-tab-pane label="Markdown 编辑" name="markdown">
+            <ClientOnly>
+              <EditorMarkdownEditor
+                v-model="mdContent"
+                :height="editorHeight"
+              />
+              <template #fallback>
+                <el-skeleton :rows="12" animated />
+              </template>
+            </ClientOnly>
+          </el-tab-pane>
+        </el-tabs>
       </el-form-item>
 
       <div class="form-actions">
@@ -85,6 +110,19 @@ const emit = defineEmits<{
 const formRef = ref()
 const analyzing = ref(false)
 
+type EditorTab = 'rich' | 'markdown'
+
+const activeTab = ref<EditorTab>('rich')
+const htmlContent = ref<string>('')
+const mdContent = ref<string>('')
+const editorHeight = '520px'
+
+const uploadImageServer = '/upload/image/article'
+const uploadImageHeaders = (): Record<string, string> => {
+  const token = useAuthToken().value
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 const form = reactive<UserArticleSaveRequest>({
   title: '',
   categoryId: '',
@@ -94,7 +132,6 @@ const form = reactive<UserArticleSaveRequest>({
   description: '',
   showMode: '1',
   status: 0,
-  content: '',
 })
 
 const showModeOptions = [
@@ -105,10 +142,30 @@ const showModeOptions = [
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  content: [{ required: true, message: '请输入正文', trigger: 'blur' }],
+  content: [{
+    validator: (_: unknown, _value: string, callback: (err?: Error) => void) => {
+      const current = activeTab.value === 'rich' ? htmlContent.value : mdContent.value
+      if (!current || !current.trim()) {
+        return callback(new Error('请输入正文'))
+      }
+      // 富文本模式下若只有空白标签也视为空
+      if (activeTab.value === 'rich') {
+        const stripped = current.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, '').trim()
+        if (!stripped) return callback(new Error('请输入正文'))
+      }
+      callback()
+    },
+    trigger: 'blur',
+  }],
 }
 
 const flatCategories = computed(() => flattenCategories(props.categories))
+
+function looksLikeHtml(s: string): boolean {
+  const t = (s || '').trim()
+  if (!t.startsWith('<')) return false
+  return /<(h[1-6]|p|div|ul|ol|li|pre|blockquote|img|table|code|strong|em|br|hr|section|article)[\s>]/i.test(t)
+}
 
 watch(
   () => props.initialValue,
@@ -122,8 +179,12 @@ watch(
       description: value?.description || '',
       showMode: value?.showMode || '1',
       status: value?.status ?? 0,
-      content: value?.content || '',
     })
+    const content = value?.content || ''
+    htmlContent.value = content
+    mdContent.value = content
+    // 根据内容自动选择合适的编辑器 tab
+    activeTab.value = content && looksLikeHtml(content) ? 'rich' : 'markdown'
   },
   { immediate: true },
 )
@@ -142,9 +203,11 @@ function flattenCategories(categories: APIClassifyDTO[], prefix = ''): FlatCateg
 }
 
 async function submit(status: number) {
+  // 同步当前 tab 的内容到 form.content 用于校验
+  form.content = activeTab.value === 'rich' ? htmlContent.value : mdContent.value
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
-  emit('submit', { ...form, status })
+  emit('submit', { ...form, status, content: form.content })
 }
 
 async function analyzeUrl() {
@@ -165,8 +228,12 @@ defineExpose({
       image: value.image || form.image,
       keywords: value.keywords || form.keywords,
       description: value.description || form.description,
-      content: value.content || form.content,
     })
+    if (value.content) {
+      htmlContent.value = value.content
+      mdContent.value = value.content
+      activeTab.value = looksLikeHtml(value.content) ? 'rich' : 'markdown'
+    }
   },
 })
 </script>
@@ -206,6 +273,15 @@ defineExpose({
 .table-link {
   color: #409eff;
   text-decoration: none;
+}
+.content-tabs {
+  width: 100%;
+}
+.content-tabs :deep(.el-tabs__header) {
+  margin-bottom: 8px;
+}
+.content-tabs :deep(.el-tabs__content) {
+  padding: 0;
 }
 @media (max-width: 768px) {
   .page-header,

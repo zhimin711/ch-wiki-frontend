@@ -17,6 +17,8 @@
     "@pinia/nuxt": "^0.9",
     "@types/highlight.js": "^9.12.4",
     "@types/markdown-it": "^14.1.2",
+    "@wangeditor/editor": "^5.1.23",
+    "@wangeditor/editor-for-vue": "^5.1.12",
     "axios": "^1.7",
     "element-plus": "^2.9",
     "highlight.js": "^11.11.1",

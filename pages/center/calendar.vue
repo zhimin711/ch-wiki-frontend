@@ -61,7 +61,7 @@
               type="warning"
               @click.stop="updateStatus(item, 1)"
             >开始</el-button>
-            <el-button link type="primary" @click.stop="openEditDialog(item)">编辑</el-button>
+            <el-button v-if="taskStatusCode(item.status) !== 3" link type="primary" @click.stop="openEditDialog(item)">编辑</el-button>
             <el-button link type="danger" @click.stop="deleteTask(item)">删除</el-button>
           </div>
         </div>

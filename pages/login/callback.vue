@@ -35,6 +35,7 @@ const errorMessage = ref('')
 const oauthRedirectFallback = ref('/')
 
 const errorMessages: Record<string, string> = {
+  oauth2_login_failed: '第三方登录失败，请重新登录',
   code_exchange_failed: '第三方登录失败，请重新登录',
   code_missing: '登录回调缺少授权码，请重新登录',
 }

@@ -326,6 +326,15 @@ useHead({ title: () => book.value ? `编辑 ${book.value.name}` : '编辑书籍 
   color: #1677b8;
   text-decoration: none;
 }
+/* 节点操作区：inline-flex 统一 <a>(inline) 与 <button>(inline-block) 的基线和间距 */
+.node-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.node-actions .table-link {
+  margin: 0;
+}
 .editor-grid {
   display: grid;
   grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.8fr);

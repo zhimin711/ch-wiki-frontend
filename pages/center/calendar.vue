@@ -11,6 +11,7 @@
           <strong>{{ monthTitle }}</strong>
           <el-button @click="shiftMonth(1)">下月</el-button>
         </div>
+        <el-button @click="openUnscheduledDialog">未排日程</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreateDialog()">新建任务</el-button>
       </div>
     </div>
@@ -78,7 +79,6 @@
       :title="editingId ? '编辑任务' : '新建任务'"
       width="500px"
       :close-on-click-modal="false"
-      :z-index="2100"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="标题" prop="title">
@@ -102,24 +102,28 @@
           </el-select>
         </el-form-item>
         <el-form-item label="日期">
-          <el-input
+          <el-date-picker
             v-model="form.planDate"
-            placeholder="YYYY-MM-DD（点击编辑任务时会自动填入）"
-            clearable
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="选择日期"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item label="开始时间">
-          <el-input
+          <el-time-picker
             v-model="form.planStartTime"
-            type="time"
+            value-format="HH:mm"
+            format="HH:mm"
             placeholder="开始时间（可选）"
             style="width: 100%"
           />
         </el-form-item>
         <el-form-item label="结束时间">
-          <el-input
+          <el-time-picker
             v-model="form.planEndTime"
-            type="time"
+            value-format="HH:mm"
+            format="HH:mm"
             placeholder="结束时间（可选）"
             style="width: 100%"
           />
@@ -140,6 +144,48 @@
         <el-button type="primary" :loading="formSaving" @click="submitForm">
           {{ editingId ? '保存修改' : '创建任务' }}
         </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 未排日程弹窗：通过 /api/tasks + unscheduled=true 标识筛选 planDate 为空的任务 -->
+    <el-dialog
+      v-model="unscheduledDialogVisible"
+      title="未排日程"
+      width="640px"
+    >
+      <div v-loading="unscheduledLoading">
+        <el-empty
+          v-if="!unscheduledLoading && unscheduledRecords.length === 0"
+          description="暂无未排日程的任务"
+        />
+        <div v-else class="task-list">
+          <div v-for="item in unscheduledRecords" :key="item.id" class="task-row">
+            <div class="task-main">
+              <strong>{{ item.title }}</strong>
+              <p v-if="item.detail" class="task-detail">{{ item.detail }}</p>
+              <p v-if="item.category" class="task-time">{{ item.category }}</p>
+            </div>
+            <div class="task-actions">
+              <el-tag :type="taskStatusType(item.status)">{{ taskStatusLabel(item.status) }}</el-tag>
+              <el-button
+                v-if="taskStatusCode(item.status) !== 3"
+                link
+                type="primary"
+                @click="openEditFromUnscheduled(item)"
+              >编辑</el-button>
+              <el-button link type="danger" @click="deleteUnscheduled(item)">删除</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <CommonPagination
+        v-if="unscheduledDialogVisible"
+        v-model="unscheduledPageNum"
+        :total="unscheduledTotal"
+        :page-size="unscheduledPageSize"
+      />
+      <template #footer>
+        <el-button @click="unscheduledDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -263,6 +309,69 @@ async function updateStatus(row: TaskItem, status: TaskStatusCode) {
     ElMessage?.error?.('状态更新失败')
   }
 }
+
+// --- 未排日程列表：通过 /api/tasks + unscheduled=true 查询 planDate 为空的任务 ---
+const unscheduledDialogVisible = ref(false)
+const unscheduledLoading = ref(false)
+const unscheduledRecords = ref<TaskItem[]>([])
+const unscheduledTotal = ref(0)
+const unscheduledPageNum = ref(1)
+const unscheduledPageSize = 10
+
+async function fetchUnscheduled() {
+  unscheduledLoading.value = true
+  try {
+    const page = await taskApi.getTasks({
+      pageNum: unscheduledPageNum.value,
+      pageSize: unscheduledPageSize,
+      // 关键标识：告诉后端只查未排日期的任务
+      unscheduled: true,
+    })
+    unscheduledRecords.value = page.list
+    unscheduledTotal.value = page.total
+  } catch {
+    ElMessage?.error?.('未排日程加载失败')
+  } finally {
+    unscheduledLoading.value = false
+  }
+}
+
+function openUnscheduledDialog() {
+  unscheduledPageNum.value = 1
+  unscheduledDialogVisible.value = true
+  fetchUnscheduled()
+}
+
+function openEditFromUnscheduled(task: TaskItem) {
+  // 先关掉未排日程弹窗，避免双层 dialog 动画打架
+  unscheduledDialogVisible.value = false
+  openEditDialog(task)
+}
+
+async function deleteUnscheduled(task: TaskItem) {
+  try {
+    await ElMessageBox.confirm(`确定删除任务「${task.title}」吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    const ok = await taskApi.deleteTask(task.id)
+    if (ok) {
+      ElMessage.success('任务已删除')
+      // 重新拉一次列表，保持与后端同步
+      fetchUnscheduled()
+    }
+  } catch (err) {
+    ElMessage.error('删除失败：' + ((err as Error)?.message || '未知错误'))
+  }
+}
+
+// 监听翻页，重新拉数据
+watch(unscheduledPageNum, fetchUnscheduled)
 
 // --- 任务表单（创建/编辑共用） ---
 
@@ -481,28 +590,6 @@ useHead({ title: '我的日程 - ch-wiki' })
   gap: 12px;
 }
 
-/* 原生 input[type=date]，样式与 el-input 对齐 */
-.date-input {
-  width: 100%;
-  height: 32px;
-  padding: 4px 11px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--color-text);
-  background-color: var(--color-bg-white);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.date-input:hover {
-  border-color: var(--color-primary-light);
-}
-.date-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.12);
-}
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -617,6 +704,25 @@ useHead({ title: '我的日程 - ch-wiki' })
   flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+/* 未排日程弹窗：内部列表区固定最大高度并可滚动，避免长任务撑爆弹窗 */
+.task-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+/* el-time-picker 弹层里永远展示 时/分/秒 三列，没有 prop 可以关。
+ 这里只保留 时/分 两列: format="HH:mm" 已经让输入框不再显示秒，
+ 面板里把第三列（秒）整个隐藏。:deep() 是因为面板 teleport 到了 body。
+ 同时把弹层的 grid 列数从 3 改回 2，避免秒列被隐藏后留下空白。 */
+:deep(.el-time-spinner) {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+:deep(.el-time-spinner__wrapper:nth-child(3)) {
+  display: none !important;
+}
+:deep(.el-time-panel__footer .el-time-panel__btn.confirm) {
+  /* 隐藏秒后，"确定"按钮的 HH:mm:ss 占位标签对齐还在，仅做兜底 */
+  font-variant-numeric: tabular-nums;
 }
 @media (max-width: 768px) {
   .page-header,

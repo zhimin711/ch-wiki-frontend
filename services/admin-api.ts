@@ -54,7 +54,6 @@ export interface AdminClassify {
   pid?: string
   code?: string
   name?: string
-  bizType?: string
   status?: string | number
   sort?: number
   createAt?: string

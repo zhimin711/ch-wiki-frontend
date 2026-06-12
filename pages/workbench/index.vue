@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { Refresh } from '@element-plus/icons-vue'
+import { Document, Folder, Grid, Key, Picture, Refresh } from '@element-plus/icons-vue'
 import type { AdminSummary } from '~/services/admin-api'
 
 definePageMeta({

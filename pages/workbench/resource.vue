@@ -40,9 +40,18 @@
       </el-table-column>
       <el-table-column label="操作" width="190" fixed="right" align="center">
         <template #default="{ row }">
-          <a v-if="row.previewUrl" :href="row.previewUrl" target="_blank" rel="noopener" class="table-link">预览</a>
-          <a v-if="row.downloadUrl" :href="row.downloadUrl" class="table-link">下载</a>
-          <el-button link type="primary" @click="openApprove(row as AdminResource)">审核</el-button>
+          <div class="table-actions">
+            <a v-if="row.previewUrl" :href="row.previewUrl" target="_blank" rel="noopener" class="table-link">预览</a>
+            <a v-if="row.downloadUrl" :href="row.downloadUrl" class="table-link">下载</a>
+            <el-button
+              v-if="row.approveStatus === '0'"
+              link
+              type="primary"
+              @click="openApprove(row as AdminResource)"
+            >
+              审核
+            </el-button>
+          </div>
         </template>
       </el-table-column>
     </WorkbenchAdminDataTable>
@@ -152,5 +161,14 @@ useHead({ title: '资源审核 - 工作台' })
 .admin-page__header { margin-bottom: 18px; }
 .admin-page__header h1 { margin: 0 0 5px; font-size: 22px; }
 .admin-page__header p { margin: 0; color: #606266; font-size: 13px; }
-.table-link { margin-right: 10px; color: #409eff; text-decoration: none; }
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.table-actions .table-link {
+  margin: 0;
+  color: #409eff;
+  text-decoration: none;
+}
 </style>

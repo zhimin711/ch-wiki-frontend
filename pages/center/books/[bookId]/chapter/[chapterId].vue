@@ -32,7 +32,16 @@
         </div>
 
         <el-form-item label="正文">
-          <el-input v-model="form.content" type="textarea" :rows="20" />
+          <ClientOnly>
+            <EditorChapterContentEditor
+              v-model="form.content"
+              :content-type="form.contentType"
+              height="600px"
+            />
+            <template #fallback>
+              <el-skeleton :rows="16" animated />
+            </template>
+          </ClientOnly>
         </el-form-item>
 
         <div class="actions">
@@ -41,22 +50,12 @@
           <el-button :disabled="!chapter.next" @click="goChapter(chapter.next)">下一章</el-button>
         </div>
       </el-form>
-
-      <section v-if="form.contentType === 'IMAGE' && imageUrls.length" class="image-preview">
-        <h2>图片预览</h2>
-        <img v-for="url in imageUrls" :key="url" :src="url" alt="" loading="lazy">
-      </section>
-      <section v-else-if="form.content" class="html-preview">
-        <h2>内容预览</h2>
-        <iframe :srcdoc="form.content" sandbox="" title="章节内容预览" />
-      </section>
     </template>
     <el-empty v-else description="章节不存在或无权访问" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { normalizeBackendUrl } from '~/composables/useAvatar'
 import type { BookContentType, UserBookChapter } from '~/services/user-book-api'
 
 definePageMeta({ layout: 'center', middleware: 'auth' })
@@ -78,7 +77,6 @@ const form = reactive({
 })
 
 const chapterTitle = computed(() => [form.number, form.name].filter(Boolean).join(' ') || '章节正文')
-const imageUrls = computed(() => form.content.split(/[,;\n]/).map(item => normalizeBackendUrl(item.trim())).filter(Boolean))
 
 async function loadChapter() {
   loading.value = true
@@ -158,27 +156,6 @@ useHead({ title: () => `${chapterTitle.value} - 我的书籍` })
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-}
-.image-preview,
-.html-preview {
-  margin-top: 24px;
-  padding-top: 18px;
-  border-top: 1px solid #e4e7ed;
-}
-.image-preview h2,
-.html-preview h2 {
-  font-size: 17px;
-}
-.image-preview img {
-  display: block;
-  max-width: 100%;
-  margin: 0 auto 14px;
-}
-.html-preview iframe {
-  width: 100%;
-  min-height: 420px;
-  border: 1px solid #e4e7ed;
-  background: #fff;
 }
 @media (max-width: 720px) {
   .page-header,

@@ -52,9 +52,11 @@
       </el-table-column>
       <el-table-column label="操作" width="190" fixed="right">
         <template #default="{ row }">
-          <NuxtLink :to="`/center/books/${row.id}`" class="table-link">目录</NuxtLink>
-          <NuxtLink :to="`/center/books/${row.id}/edit`" class="table-link">编辑</NuxtLink>
-          <el-button link type="danger" @click="removeBook(row as UserBook)">删除</el-button>
+          <div class="table-actions">
+            <NuxtLink :to="`/center/books/${row.id}`" class="table-link">目录</NuxtLink>
+            <NuxtLink :to="`/center/books/${row.id}/edit`" class="table-link">编辑</NuxtLink>
+            <el-button link type="danger" @click="removeBook(row as UserBook)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -179,6 +181,15 @@ useHead({ title: '我的书籍 - ch-wiki' })
   color: #1677b8;
   text-decoration: none;
   margin-right: 10px;
+}
+/* 操作列：inline-flex 统一 <a>(inline) 与 <button>(inline-block) 的基线和间距 */
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.table-actions .table-link {
+  margin: 0;
 }
 .book-cell small {
   display: block;

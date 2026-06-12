@@ -33,7 +33,6 @@
     >
       <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
       <el-table-column prop="code" label="编码" min-width="190" show-overflow-tooltip />
-      <el-table-column prop="bizType" label="业务类型" width="130" />
       <el-table-column prop="pid" label="父级路径" min-width="160" show-overflow-tooltip />
       <el-table-column prop="sort" label="排序" width="76" align="center" />
       <el-table-column label="状态" width="86" align="center">
@@ -55,13 +54,15 @@
         <el-form-item label="名称" required>
           <el-input v-model="editing.name" maxlength="80" />
         </el-form-item>
-        <el-form-item label="编码" required>
-          <el-input v-model="editing.code" maxlength="80" />
+        <el-form-item label="编码" :required="!isTopLevelEdit">
+          <el-input
+            v-model="editing.code"
+            maxlength="80"
+            :disabled="isTopLevelEdit"
+            :placeholder="isTopLevelEdit ? '顶级分类编码不可修改' : ''"
+          />
         </el-form-item>
         <div class="editor-grid">
-          <el-form-item label="业务类型">
-            <el-input v-model="editing.bizType" maxlength="40" />
-          </el-form-item>
           <el-form-item label="父级路径">
             <el-input v-model="editing.pid" placeholder="0" />
           </el-form-item>
@@ -102,7 +103,6 @@ const editing = reactive({
   id: '' as string | number,
   name: '',
   code: '',
-  bizType: '',
   pid: '0',
   sort: 0,
   enabled: true,
@@ -145,8 +145,12 @@ function changePageSize(value: number) {
   fetchData()
 }
 function resetEditor() {
-  Object.assign(editing, { id: '', name: '', code: '', bizType: '', pid: '0', sort: 0, enabled: true })
+  Object.assign(editing, { id: '', name: '', code: '', pid: '0', sort: 0, enabled: true })
 }
+/** 编辑模式下，pid 为空或 '0'（顶级分类）时编码不可修改 */
+const isTopLevelEdit = computed(
+  () => !!editing.id && (!editing.pid || editing.pid === '0'),
+)
 function openCreate() {
   resetEditor()
   editorVisible.value = true
@@ -156,7 +160,6 @@ function openEdit(row: AdminClassify) {
     id: row.id,
     name: row.name || '',
     code: row.code || '',
-    bizType: row.bizType || '',
     pid: row.pid || '0',
     sort: row.sort || 0,
     enabled: String(row.status) === '1',
@@ -168,7 +171,6 @@ async function saveClassify() {
   const payload = {
     name: editing.name,
     code: editing.code,
-    bizType: editing.bizType,
     pid: editing.pid || '0',
     sort: editing.sort,
     status: editing.enabled ? '1' : '0',

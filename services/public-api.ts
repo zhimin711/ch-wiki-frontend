@@ -128,7 +128,6 @@ export interface APIClassifyDTO {
   name: string
   image: string
   scope: string
-  bizType: string
   sort: number
   children: APIClassifyDTO[]
 }

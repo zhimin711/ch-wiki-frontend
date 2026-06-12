@@ -55,7 +55,14 @@
       </el-table-column>
       <el-table-column label="操作" width="90" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openApprove(row as AdminImage)">审核</el-button>
+          <el-button
+            v-if="row.approveStatus === '0'"
+            link
+            type="primary"
+            @click="openApprove(row as AdminImage)"
+          >
+            审核
+          </el-button>
         </template>
       </el-table-column>
     </WorkbenchAdminDataTable>

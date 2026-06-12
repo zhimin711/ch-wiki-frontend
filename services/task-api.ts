@@ -27,6 +27,8 @@ export interface TaskQuery {
   status?: TaskStatusCode | null
   start?: string
   end?: string
+  /** 仅查询未排日期的任务（planDate 为空），由后端按此标识过滤 */
+  unscheduled?: boolean
 }
 
 export interface TaskSaveRequest {

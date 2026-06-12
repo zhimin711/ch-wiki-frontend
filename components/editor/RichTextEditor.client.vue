@@ -104,6 +104,13 @@ const editorConfig = computed(() => ({
 
 function handleCreated(editor: WangEditorInstance) {
   editorRef.value = editor
+  // 防御: 编辑器实例刚就绪,主动把当前内容同步过去。
+  // wangeditor-for-vue 理论上会用 props.modelValue 作为初始 html,
+  // 但在 SSR/异步加载/重挂载等场景下时序可能错位,
+  // 这里做一次兜底,确保内容一定会显示出来。
+  if (htmlContent.value && editor.getHtml() !== htmlContent.value) {
+    editor.setHtml(htmlContent.value)
+  }
 }
 
 function handleChange(editor: WangEditorInstance) {
@@ -122,9 +129,13 @@ watch(
   () => props.modelValue,
   (val) => {
     if (val == null) return
-    if (val === htmlContent.value) return
-    htmlContent.value = val
-    // 外部 v-model 变化时同步到编辑器实例
+    if (val !== htmlContent.value) {
+      htmlContent.value = val
+    }
+    // 关键: 以 editorRef.value.getHtml() 作为判断依据,
+    // 而不是 htmlContent.value。因为父组件 (如 ChapterContentEditor 的 syncAll)
+    // 可能已经先更新了本地 ref,但 wangeditor 实例的 DOM 尚未同步。
+    // 典型场景: 进入编辑页时,内容是异步加载的,初次挂载的编辑器是空的。
     if (editorRef.value && editorRef.value.getHtml() !== val) {
       editorRef.value.setHtml(val)
     }

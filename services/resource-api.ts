@@ -110,7 +110,7 @@ export function useResourceApi() {
   return {
     async getResourceCategories() {
       const { data: resp } = await client.get<ApiResult<APIClassifyDTO[]>>('/api/public/classify/list', {
-        params: { bizType: 'resource' },
+        params: { bizType: 'RESOURCE' },
       })
       return extractData(resp) || []
     },

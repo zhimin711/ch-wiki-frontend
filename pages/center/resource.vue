@@ -56,10 +56,12 @@
       </el-table-column>
       <el-table-column label="操作" width="230" fixed="right">
         <template #default="{ row }">
-          <NuxtLink :to="`/res/edit/${row.id}`" class="table-link">编辑</NuxtLink>
-          <a v-if="row.previewUrl" :href="row.previewUrl" class="table-link" target="_blank" rel="noopener noreferrer">预览</a>
-          <a v-if="row.downloadUrl" :href="row.downloadUrl" class="table-link" target="_blank" rel="noopener noreferrer">下载</a>
-          <el-button link type="danger" @click="deleteResource(row as UserResourceItem)">删除</el-button>
+          <div class="table-actions">
+            <NuxtLink :to="`/res/edit/${row.id}`" class="table-link">编辑</NuxtLink>
+            <a v-if="row.previewUrl" :href="row.previewUrl" class="table-link" target="_blank" rel="noopener noreferrer">预览</a>
+            <a v-if="row.downloadUrl" :href="row.downloadUrl" class="table-link" target="_blank" rel="noopener noreferrer">下载</a>
+            <el-button link type="danger" @click="deleteResource(row as UserResourceItem)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -181,6 +183,15 @@ useHead({ title: '我的资源 - ch-wiki' })
   color: #409eff;
   text-decoration: none;
   margin-right: 10px;
+}
+/* 操作列：inline-flex 统一 <a>(inline) 与 <button>(inline-block) 的基线和间距 */
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.table-actions .table-link {
+  margin: 0;
 }
 @media (max-width: 768px) {
   .page-header,

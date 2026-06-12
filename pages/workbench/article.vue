@@ -73,7 +73,15 @@
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button link type="primary" :disabled="actionLoading" @click="openApprove(row as AdminArticle)">审核</el-button>
+          <el-button
+            v-if="row.approveStatus === '0' || row.approveStatus === '2'"
+            link
+            type="primary"
+            :disabled="actionLoading"
+            @click="openApprove(row as AdminArticle)"
+          >
+            审核
+          </el-button>
           <el-button
             link
             type="success"

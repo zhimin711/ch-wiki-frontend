@@ -35,6 +35,7 @@
         <NuxtLink to="/center/profile">编辑资料</NuxtLink>
         <NuxtLink to="/center/avatar">更换头像</NuxtLink>
         <NuxtLink to="/center/password">管理密码</NuxtLink>
+        <NuxtLink v-if="isAdmin" to="/workbench">前往工作台</NuxtLink>
       </div>
     </div>
     <el-empty v-else description="请先登录" />
@@ -56,6 +57,10 @@ const avatarSrc = computed(() => resolveDisplayImage(
   profile.value?.nickname || profile.value?.username || '?',
   64,
 ))
+/** VIP 且等级大于 99 才显示工作台入口 */
+const isAdmin = computed(
+  () => profile.value?.type === 'VIP' && (profile.value?.level ?? 0) > 99,
+)
 
 onMounted(async () => {
   try {

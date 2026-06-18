@@ -14,8 +14,8 @@
         <el-form-item label="标题" prop="title">
           <el-input v-model="form.title" maxlength="120" show-word-limit />
         </el-form-item>
-        <el-form-item label="分类" prop="categoryId">
-          <el-select v-model="form.categoryId" filterable placeholder="选择分类">
+        <el-form-item label="分类" prop="categoryIds">
+          <el-select v-model="categoryIds" multiple filterable collapse-tags placeholder="选择分类">
             <el-option
               v-for="item in flatCategories"
               :key="item.id"
@@ -29,9 +29,6 @@
       <div class="form-grid">
         <el-form-item label="标签" prop="keywords">
           <el-input v-model="form.keywords" maxlength="120" placeholder="多个标签用逗号分隔" />
-        </el-form-item>
-        <el-form-item label="展示方式" prop="showMode">
-          <el-segmented v-model="form.showMode" :options="showModeOptions" />
         </el-form-item>
       </div>
 
@@ -54,8 +51,8 @@
               <EditorRichTextEditor
                 v-model="htmlContent"
                 :height="editorHeight"
-                :upload-image-server="uploadImageServer"
-                :upload-image-headers="uploadImageHeaders"
+                media-purpose="ARTICLE_CONTENT"
+                @media-status="handleMediaStatus"
               />
               <template #fallback>
                 <el-skeleton :rows="12" animated />
@@ -76,9 +73,24 @@
         </el-tabs>
       </el-form-item>
 
+      <el-alert
+        v-if="mediaIds.length"
+        type="info"
+        :closable="false"
+        show-icon
+        :title="`正文包含 ${mediaIds.length} 个私有媒体，发布后将异步转为静态资源`"
+      />
+      <el-alert
+        v-if="mediaStatus.failed"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="有媒体上传失败，请在编辑器下方重试或移除"
+      />
+
       <div class="form-actions">
-        <el-button :loading="saving" @click="submit(0)">保存草稿</el-button>
-        <el-button type="primary" :loading="saving" @click="submit(1)">提交发布</el-button>
+        <el-button :loading="saving" :disabled="mediaStatus.uploading" @click="submit(0)">保存草稿</el-button>
+        <el-button type="primary" :loading="saving" :disabled="mediaStatus.uploading" @click="submit(1)">提交发布</el-button>
         <el-button :disabled="!form.href" :loading="analyzing" @click="analyzeUrl">加载源文章</el-button>
       </div>
     </el-form>
@@ -116,11 +128,10 @@ const activeTab = ref<EditorTab>('rich')
 const htmlContent = ref<string>('')
 const mdContent = ref<string>('')
 const editorHeight = '520px'
+const mediaStatus = reactive({ uploading: false, failed: false })
 
-const uploadImageServer = '/upload/image/article'
-const uploadImageHeaders = (): Record<string, string> => {
-  const token = useAuthToken().value
-  return token ? { Authorization: `Bearer ${token}` } : {}
+function handleMediaStatus(value: { uploading: boolean; failed: boolean }) {
+  Object.assign(mediaStatus, value)
 }
 
 const form = reactive<UserArticleSaveRequest>({
@@ -130,18 +141,40 @@ const form = reactive<UserArticleSaveRequest>({
   image: '',
   keywords: '',
   description: '',
-  showMode: '1',
   status: 0,
 })
-
-const showModeOptions = [
-  { label: '公开', value: '1' },
-  { label: '私有', value: '0' },
-]
+/** 多选分类 id 数组，与 select 绑定。提交时再 join(',') 回写 form.categoryId */
+const categoryIds = ref<string[]>([])
+const mediaIds = computed(() => extractArticleMediaIds(
+  activeTab.value === 'rich' ? htmlContent.value : mdContent.value,
+))
+/** 把后端返回的 categoryId（可能是 '5' / '1,2,3' / '["1","2"]'）拆成数组，只保留最后一级 id，前面层级（路径前缀）丢弃 */
+function toCategoryIdArray(value: unknown): string[] {
+  if (value == null) return []
+  const trimmed = String(value).trim()
+  if (!trimmed) return []
+  let arr: string[]
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) arr = parsed.map(String).filter(Boolean)
+      else arr = [trimmed]
+    } catch { arr = [trimmed] }
+  } else {
+    arr = trimmed.split(',').map(item => item.trim()).filter(Boolean)
+  }
+  return arr.length ? [arr[arr.length - 1]] : []
+}
 
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  categoryIds: [{
+    validator: (_: unknown, _value: string[] | undefined, callback: (err?: Error) => void) => {
+      if (!categoryIds.value.length) return callback(new Error('请选择分类'))
+      callback()
+    },
+    trigger: 'change',
+  }],
   content: [{
     validator: (_: unknown, _value: string, callback: (err?: Error) => void) => {
       const current = activeTab.value === 'rich' ? htmlContent.value : mdContent.value
@@ -151,7 +184,9 @@ const rules = {
       // 富文本模式下若只有空白标签也视为空
       if (activeTab.value === 'rich') {
         const stripped = current.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, '').trim()
-        if (!stripped) return callback(new Error('请输入正文'))
+        if (!stripped && extractArticleMediaIds(current).length === 0) {
+          return callback(new Error('请输入正文'))
+        }
       }
       callback()
     },
@@ -177,9 +212,9 @@ watch(
       image: value?.image || '',
       keywords: value?.keywords || '',
       description: value?.description || '',
-      showMode: value?.showMode || '1',
       status: value?.status ?? 0,
     })
+    categoryIds.value = toCategoryIdArray(value?.categoryId)
     const content = value?.content || ''
     htmlContent.value = content
     mdContent.value = content
@@ -203,11 +238,21 @@ function flattenCategories(categories: APIClassifyDTO[], prefix = ''): FlatCateg
 }
 
 async function submit(status: number) {
+  if (mediaStatus.uploading) {
+    ElMessage?.warning?.('请等待媒体上传完成')
+    return
+  }
   // 同步当前 tab 的内容到 form.content 用于校验
   form.content = activeTab.value === 'rich' ? htmlContent.value : mdContent.value
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
-  emit('submit', { ...form, status, content: form.content })
+  emit('submit', {
+    ...form,
+    status,
+    content: form.content,
+    categoryId: categoryIds.value.join(','),
+    mediaIds: extractArticleMediaIds(form.content),
+  })
 }
 
 async function analyzeUrl() {
@@ -269,6 +314,10 @@ defineExpose({
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+.form-actions + .el-alert,
+.el-alert + .form-actions {
+  margin-top: 12px;
 }
 .table-link {
   color: #409eff;

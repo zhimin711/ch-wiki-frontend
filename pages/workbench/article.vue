@@ -17,10 +17,9 @@
       @search="reload"
       @reset="resetFilters"
     >
-      <el-select v-model="query.showMode" clearable placeholder="展示状态">
-        <el-option label="公开" value="1" />
-        <el-option label="私有" value="0" />
-        <el-option label="隐藏" value="2" />
+      <el-select v-model="query.status" clearable placeholder="文章状态">
+        <el-option label="草稿" :value="0" />
+        <el-option label="发布" :value="1" />
       </el-select>
       <el-select v-model="query.recommendType" clearable placeholder="推荐类型">
         <el-option label="不推荐" value="0" />
@@ -51,10 +50,10 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="公开" width="86" align="center">
+      <el-table-column label="状态" width="86" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.showMode === '1' ? 'success' : 'info'" size="small">
-            {{ showModeLabel(row.showMode) }}
+          <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
+            {{ row.status === 1 ? '发布' : '草稿' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -74,7 +73,7 @@
       <el-table-column label="操作" width="150" fixed="right" align="center">
         <template #default="{ row }">
           <el-button
-            v-if="row.approveStatus === '0' || row.approveStatus === '2'"
+            v-if="isReviewable(row.approveStatus)"
             link
             type="primary"
             :disabled="actionLoading"
@@ -83,9 +82,10 @@
             审核
           </el-button>
           <el-button
+            v-if="!isUnknownStatus(row.approveStatus)"
             link
             type="success"
-            :disabled="row.approveStatus !== '1' || actionLoading"
+            :disabled="!isRecommendable(row.approveStatus) || actionLoading"
             @click="openRecommend(row as AdminArticle)"
           >
             推荐
@@ -150,16 +150,18 @@ const recommendRemark = ref('')
 const query = reactive({
   title: '',
   approveStatus: '',
-  showMode: '',
+  status: null as number | null,
   recommendType: '',
 })
 
 const approveOptions = [
-  { label: '未审核', value: '0' },
-  { label: '通过', value: '1' },
-  { label: '重新提交', value: '2' },
-  { label: '撤回', value: '3' },
-  { label: '驳回', value: '4' },
+  { label: '待审核', value: '0' },
+  { label: '审核通过', value: '1' },
+  { label: '重新审核', value: '2' },
+  { label: '取消审核', value: '3' },
+  { label: '审核驳回', value: '4' },
+  { label: '审核中', value: '5' },
+  { label: '未知状态', value: '-1' },
 ]
 const recommendOptions = [
   { label: '不推荐', value: '0' },
@@ -168,18 +170,47 @@ const recommendOptions = [
   { label: '精选', value: '3' },
 ]
 
-function approveLabel(status?: string) {
-  return ({ '0': '未审核', '1': '通过', '2': '重提', '3': '撤回', '4': '驳回' } as Record<string, string>)[status || '0'] || '未审核'
+function toApproveKey(status?: string | number | null) {
+  if (status == null) return ''
+  return String(status).trim()
 }
 
-function approveType(status?: string) {
-  if (status === '1') return 'success'
-  if (status === '4') return 'danger'
-  return 'warning'
+function approveLabel(status?: string | number) {
+  const map: Record<string, string> = {
+    '0': '待审核',
+    '1': '审核通过',
+    '2': '重新审核',
+    '3': '取消审核',
+    '4': '审核驳回',
+    '5': '审核中',
+    '-1': '未知状态',
+  }
+  return map[toApproveKey(status)] || '未知状态'
 }
 
-function showModeLabel(status?: string) {
-  return ({ '0': '私有', '1': '公开', '2': '隐藏' } as Record<string, string>)[status || '0'] || '私有'
+function approveType(status?: string | number) {
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'primary'> = {
+    '0': 'warning',
+    '1': 'success',
+    '2': 'warning',
+    '3': 'info',
+    '4': 'danger',
+    '5': 'primary',
+    '-1': 'info',
+  }
+  return map[toApproveKey(status)] || 'info'
+}
+
+function isReviewable(status?: string | number) {
+  return ['0', '2'].includes(toApproveKey(status))
+}
+
+function isRecommendable(status?: string | number) {
+  return toApproveKey(status) === '1'
+}
+
+function isUnknownStatus(status?: string | number) {
+  return toApproveKey(status) === '-1'
 }
 
 function recommendLabel(type?: string | number) {
@@ -216,7 +247,7 @@ function reload() {
 }
 
 function resetFilters() {
-  Object.assign(query, { title: '', approveStatus: '', showMode: '', recommendType: '' })
+  Object.assign(query, { title: '', approveStatus: '', status: null, recommendType: '' })
   reload()
 }
 

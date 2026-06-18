@@ -28,8 +28,9 @@
       <el-table-column label="创建" width="170">
         <template #default="{ row }">{{ formatDate(row.createAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
+          <el-button link type="primary" @click="openEdit(row as BookmarkItem)">编辑</el-button>
           <el-button link type="danger" @click="deleteBookmark(row as BookmarkItem)">删除</el-button>
         </template>
       </el-table-column>
@@ -37,7 +38,11 @@
 
     <CommonPagination v-model="pageNum" :total="total" :page-size="pageSize" />
 
-    <el-dialog v-model="dialogVisible" title="新增书签" width="520px">
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editingId ? '编辑书签' : '新增书签'"
+      width="520px"
+    >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" maxlength="80" />
@@ -56,7 +61,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="createBookmark">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="submitBookmark">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -74,6 +79,7 @@ const bookmarkApi = useBookmarkApi()
 const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
+const editingId = ref<number | null>(null)
 const formRef = ref()
 const records = ref<BookmarkItem[]>([])
 const total = ref(0)
@@ -103,7 +109,15 @@ function resetForm() {
   form.href = ''
   form.type = ''
   form.mark = ''
+  editingId.value = null
   formRef.value?.clearValidate?.()
+}
+
+function fillForm(row: BookmarkItem) {
+  form.name = row.name || ''
+  form.href = row.href || ''
+  form.type = row.type || ''
+  form.mark = row.mark || ''
 }
 
 function formatDate(value?: string) {
@@ -139,15 +153,25 @@ function openCreate() {
   dialogVisible.value = true
 }
 
-async function createBookmark() {
+function openEdit(row: BookmarkItem) {
+  resetForm()
+  editingId.value = row.id
+  fillForm(row)
+  dialogVisible.value = true
+}
+
+async function submitBookmark() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
 
   saving.value = true
   try {
-    const ok = await bookmarkApi.createBookmark({ ...form })
+    const isUpdate = editingId.value != null
+    const ok = isUpdate
+      ? await bookmarkApi.updateBookmark(editingId.value as number, { ...form })
+      : await bookmarkApi.createBookmark({ ...form })
     if (ok) {
-      ElMessage?.success?.('书签已保存')
+      ElMessage?.success?.(isUpdate ? '书签已更新' : '书签已保存')
       dialogVisible.value = false
       reload()
     }

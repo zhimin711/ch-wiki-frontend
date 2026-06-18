@@ -176,6 +176,43 @@ export interface PublicBookChapterDTO {
   children: PublicBookChapterDTO[]
 }
 
+export interface PublicCalendarDayDTO {
+  date: string
+  dayOfWeek: number
+  year: number
+  month: number
+  day: number
+  lunarDate: string | null
+  lunarYear: string | null
+  solarTerm: string | null
+  workday: boolean
+  legalHoliday: boolean
+  adjustWorkday: boolean
+  festivals: string[]
+}
+
+export interface PublicCalendarMonthDTO {
+  year: number
+  month: number
+  days: PublicCalendarDayDTO[]
+}
+
+export interface PublicCalendarDayDetailDTO extends PublicCalendarDayDTO {
+  lunarYearNum: number | null
+  lunarMonthNum: number | null
+  lunarDayNum: number | null
+  lunarMonthCn: string | null
+  lunarDayCn: string | null
+  ganZhiYear: string | null
+  zodiac: string | null
+}
+
+export interface PublicWorkdayResultDTO {
+  date: string
+  workday: boolean
+  reason: string
+}
+
 const emptyPage = { list: [], total: 0 }
 
 async function safeData<T>(request: () => Promise<ApiResult<T>>): Promise<T | null> {
@@ -366,6 +403,30 @@ export function usePublicApi() {
     async getChapterContent(bookId: number, chapterId: string) {
       return safeData(async () => {
         const { data } = await client.get<ApiResult<PublicBookChapterDTO>>(`/api/public/books/${bookId}/chapters/${chapterId}`)
+        return data
+      })
+    },
+
+    /** 获取月历数据（公历+农历+节气+节日标记） */
+    async getCalendarMonth(year: number, month: number) {
+      return safeData(async () => {
+        const { data } = await client.get<ApiResult<PublicCalendarMonthDTO>>(`/api/public/calendar/${year}/${month}`)
+        return data
+      })
+    },
+
+    /** 获取某天日历详情 */
+    async getCalendarDay(date: string) {
+      return safeData(async () => {
+        const { data } = await client.get<ApiResult<PublicCalendarDayDetailDTO>>(`/api/public/calendar/${date}`)
+        return data
+      })
+    },
+
+    /** 工作日判断 */
+    async isWorkday(date: string) {
+      return safeData(async () => {
+        const { data } = await client.get<ApiResult<PublicWorkdayResultDTO>>(`/api/public/calendar/${date}/workday`)
         return data
       })
     },

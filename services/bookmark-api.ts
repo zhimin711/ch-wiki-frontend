@@ -58,6 +58,11 @@ export function useBookmarkApi() {
       return extractData(resp)
     },
 
+    async updateBookmark(id: number, request: BookmarkCreateRequest) {
+      const { data: resp } = await client.put<ApiResult<boolean>>(`/api/bookmarks/${id}`, request)
+      return extractData(resp)
+    },
+
     async deleteBookmark(id: number) {
       const { data: resp } = await client.delete<ApiResult<boolean>>(`/api/bookmarks/${id}`)
       return extractData(resp)

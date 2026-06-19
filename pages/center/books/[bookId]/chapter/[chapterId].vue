@@ -184,7 +184,7 @@ async function onImportFileChange(event: Event) {
           // 5xx/超时/网络错误：降级为前端 JSZip 逐张上传
           ElMessage?.warning?.('后端导入失败，已切换为逐张上传模式')
           const extracted = await extractImagesFromZip(zipFile)
-          await importImages(extracted, { sourceName: zipFile.name })
+          await importImages(extracted)
         }
       } else {
         await importImages(Array.from(files))

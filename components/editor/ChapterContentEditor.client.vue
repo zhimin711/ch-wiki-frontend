@@ -63,10 +63,10 @@
         />
       </details>
       <div v-if="imageUrls.length" class="image-preview">
-        <h3>图片预览（{{ imageUrls.length }}）</h3>
-        <div class="image-preview__scroller">
+        <h3>图片预览（{{ visibleImageCount }} / {{ imageUrls.length }}）</h3>
+        <div class="image-preview__scroller" @scroll="onImagePreviewScroll">
           <figure
-            v-for="(url, idx) in imageUrls"
+            v-for="(url, idx) in previewImageUrls"
             :key="`${url}-${idx}`"
             class="image-preview__page"
           >
@@ -78,6 +78,9 @@
               @error="onImgError($event)"
             >
           </figure>
+          <div v-if="hasMorePreviewImages" class="image-preview__load-more">
+            向下滚动加载更多
+          </div>
         </div>
       </div>
       <el-empty v-else description="还没有图片地址" />
@@ -172,10 +175,10 @@
           />
         </details>
         <div v-if="imageUrls.length" class="image-preview image-preview--fullscreen">
-          <h3>图片预览（{{ imageUrls.length }}）</h3>
-          <div class="image-preview__scroller">
+          <h3>图片预览（{{ visibleImageCount }} / {{ imageUrls.length }}）</h3>
+          <div class="image-preview__scroller" @scroll="onImagePreviewScroll">
             <figure
-              v-for="(url, idx) in imageUrls"
+              v-for="(url, idx) in previewImageUrls"
               :key="`fs-${url}-${idx}`"
               class="image-preview__page"
             >
@@ -187,6 +190,9 @@
                 @error="onImgError($event)"
               >
             </figure>
+            <div v-if="hasMorePreviewImages" class="image-preview__load-more">
+              向下滚动加载更多
+            </div>
           </div>
         </div>
         <el-empty v-else description="还没有图片地址" />
@@ -249,6 +255,9 @@ const htmlContent = ref<string>('')
 const mdContent = ref<string>('')
 const urlContent = ref<string>('')
 const activeTab = ref<EditorTab>('rich')
+const IMAGE_PREVIEW_BATCH_SIZE = 8
+const IMAGE_PREVIEW_LOAD_OFFSET = 480
+const visibleImageCount = ref(IMAGE_PREVIEW_BATCH_SIZE)
 
 // 全屏编辑面板开关
 const fullscreen = ref(false)
@@ -299,6 +308,9 @@ const imageSourceContent = computed(() => {
     .filter(Boolean)
   return urls.join('\n')
 })
+
+const previewImageUrls = computed(() => imageUrls.value.slice(0, visibleImageCount.value))
+const hasMorePreviewImages = computed(() => visibleImageCount.value < imageUrls.value.length)
 
 const isDirectVideo = computed(() => {
   const url = (urlContent.value || '').trim().toLowerCase()
@@ -358,7 +370,14 @@ watch(
   () => {
     const current = htmlContent.value || mdContent.value || urlContent.value
     syncAll(current)
+    resetImagePreview()
   },
+)
+
+watch(
+  imageUrls,
+  () => resetImagePreview(),
+  { immediate: true },
 )
 
 // 内部内容变化 -> emit
@@ -395,6 +414,24 @@ watch(urlContent, (val) => {
 
 function onUrlInput(value: string | number) {
   urlContent.value = String(value ?? '')
+}
+
+function resetImagePreview() {
+  visibleImageCount.value = Math.min(IMAGE_PREVIEW_BATCH_SIZE, imageUrls.value.length)
+}
+
+function loadMorePreviewImages() {
+  if (!hasMorePreviewImages.value) return
+  visibleImageCount.value = Math.min(
+    visibleImageCount.value + IMAGE_PREVIEW_BATCH_SIZE,
+    imageUrls.value.length,
+  )
+}
+
+function onImagePreviewScroll(event: Event) {
+  const scroller = event.currentTarget as HTMLElement
+  const distanceToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+  if (distanceToBottom <= IMAGE_PREVIEW_LOAD_OFFSET) loadMorePreviewImages()
 }
 
 function imageUrlsToHtml(value: string): string {
@@ -525,6 +562,12 @@ function onImgError(event: Event) {
   width: auto;
   max-width: 100%;
   height: auto;
+}
+.image-preview__load-more {
+  padding: 6px 0 2px;
+  color: #909399;
+  font-size: 12px;
+  text-align: center;
 }
 
 /* 全屏模式:scroller 撑满面板剩余空间 */

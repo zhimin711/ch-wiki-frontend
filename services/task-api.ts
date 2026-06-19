@@ -103,7 +103,7 @@ export function useTaskApi() {
     },
 
     async getCalendarTasks(start: string, end: string) {
-      const { data: resp } = await client.get<ApiResult<TaskItem[]>>('/api/user/calendar', { params: { start, end } })
+      const { data: resp } = await client.get<ApiResult<TaskItem[]>>('/api/tasks/calendar', { params: { start, end } })
       return toRows(extractData(resp))
     },
 

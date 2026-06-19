@@ -216,7 +216,9 @@ export function useUserBookApi() {
           },
         },
       )
-      return extractData(data)
+      const result = extractData(data)
+      if (!result) throw new Error(data.message || '导入失败')
+      return result
     },
   }
 }

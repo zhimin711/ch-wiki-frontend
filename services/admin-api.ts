@@ -77,6 +77,16 @@ export interface AdminApiKeyConfig {
   updateAt?: string
 }
 
+export interface AdminHolidayRule {
+  id?: string | number
+  year: number
+  name: string
+  sort?: number
+  holidayDates: string[]
+  workdayDates: string[]
+  source?: string
+}
+
 export interface ApiKeyConfigUpdatePayload {
   expiredAt: Date | string | null
   status: string
@@ -199,6 +209,18 @@ export function useAdminApi() {
     async updateApiKeyConfigStatus(id: string | number, status: string) {
       const { data } = await client.patch<ApiResult<boolean>>(`/api/admin/api-key-configs/${id}/status`, { status })
       return unwrap(data, false)
+    },
+    async generateCalendarYear(year: number) {
+      const { data } = await client.post<ApiResult<number>>(`/api/admin/calendar/generate/${year}`)
+      return unwrap(data, 0)
+    },
+    async listCalendarHolidays(year: number) {
+      const { data } = await client.get<ApiResult<AdminHolidayRule[]>>(`/api/admin/calendar/holidays/${year}`)
+      return unwrap(data, [])
+    },
+    async upsertCalendarHoliday(payload: AdminHolidayRule) {
+      const { data } = await client.put<ApiResult<number>>('/api/admin/calendar/holidays', payload)
+      return unwrap(data, 0)
     },
   }
 }

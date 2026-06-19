@@ -25,22 +25,41 @@
         v-for="day in days"
         :key="day.key"
         class="day-cell"
-        :class="{ muted: !day.inMonth, today: day.isToday }"
+        :class="{
+          muted: !day.inMonth,
+          today: day.isToday,
+          holiday: day.calendarInfo?.legalHoliday,
+          adjust: day.calendarInfo?.adjustWorkday,
+          weekend: day.date.getDay() === 0 || day.date.getDay() === 6,
+        }"
         type="button"
         @click="selectDay(day.key)"
       >
-        <span class="day-number">{{ day.date.getDate() }}</span>
+        <span class="day-heading">
+          <span class="day-number" :class="{ 'is-today': day.isToday }">
+            <span v-if="day.isToday" class="today-dot" aria-hidden="true" />
+            {{ day.date.getDate() }}
+          </span>
+          <span v-if="day.calendarInfo?.legalHoliday" class="day-flag holiday-flag">休</span>
+          <span v-else-if="day.calendarInfo?.adjustWorkday" class="day-flag adjust-flag">班</span>
+        </span>
+        <span class="lunar-line">{{ day.calendarInfo?.lunarDate || '' }}</span>
+        <span v-if="calendarMarker(day.calendarInfo)" class="calendar-marker">
+          {{ calendarMarker(day.calendarInfo) }}
+        </span>
         <span v-for="item in tasksByDay[day.key]?.slice(0, 3)" :key="item.id" class="event-dot" :class="`status-${taskStatusCode(item.status)}`">
+          <span class="event-dot__bar" :class="`status-${taskStatusCode(item.status)}`" aria-hidden="true" />
           {{ item.title }}
         </span>
-        <span v-if="(tasksByDay[day.key]?.length || 0) > 3" class="more">+{{ (tasksByDay[day.key]?.length || 0) - 3 }}</span>
+        <span v-if="(tasksByDay[day.key]?.length || 0) > 3" class="more">+{{ (tasksByDay[day.key]?.length || 0) - 3 }} 更多</span>
       </button>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="selectedDateTitle" width="560px">
       <el-empty v-if="selectedTasks.length === 0" description="当天暂无任务" />
       <div v-else class="task-list">
-        <div v-for="item in selectedTasks" :key="item.id" class="task-row">
+        <div v-for="item in selectedTasks" :key="item.id" class="task-row" :class="`task-row--status-${taskStatusCode(item.status)}`">
+          <span class="task-row__bar" aria-hidden="true" />
           <div class="task-main">
             <strong>{{ item.title }}</strong>
             <p v-if="item.detail" class="task-detail">{{ item.detail }}</p>
@@ -159,7 +178,8 @@
           description="暂无未排日程的任务"
         />
         <div v-else class="task-list">
-          <div v-for="item in unscheduledRecords" :key="item.id" class="task-row">
+          <div v-for="item in unscheduledRecords" :key="item.id" class="task-row" :class="`task-row--status-${taskStatusCode(item.status)}`">
+            <span class="task-row__bar" aria-hidden="true" />
             <div class="task-main">
               <strong>{{ item.title }}</strong>
               <p v-if="item.detail" class="task-detail">{{ item.detail }}</p>
@@ -196,6 +216,7 @@ import { nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import type { TaskItem, TaskStatusCode, TaskSaveRequest } from '~/services/task-api'
+import type { PublicCalendarDayDTO } from '~/services/public-api'
 
 definePageMeta({
   layout: 'center',
@@ -207,12 +228,15 @@ interface CalendarDay {
   date: Date
   inMonth: boolean
   isToday: boolean
+  calendarInfo?: PublicCalendarDayDTO
 }
 
 const taskApi = useTaskApi()
+const { getCalendarMonth } = usePublicApi()
 const loading = ref(false)
 const currentMonth = ref(startOfMonth(new Date()))
 const tasks = ref<TaskItem[]>([])
+const calendarByDate = ref<Record<string, PublicCalendarDayDTO>>({})
 const selectedDate = ref('')
 const dialogVisible = ref(false)
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
@@ -231,6 +255,7 @@ const days = computed(() => {
       date,
       inMonth: date.getMonth() === currentMonth.value.getMonth(),
       isToday: toDateKey(date) === toDateKey(new Date()),
+      calendarInfo: calendarByDate.value[toDateKey(date)],
     }
   })
 })
@@ -258,6 +283,18 @@ function toDateKey(date: Date) {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+function toMonthKey(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  return `${date.getFullYear()}-${month}`
+}
+
+function calendarMarker(day?: PublicCalendarDayDTO) {
+  if (!day) return ''
+  if (day.solarTerm) return day.solarTerm
+  const festival = (day.festivals || []).find(item => item !== '传统节日' && item !== '法定假日')
+  return festival || ''
+}
+
 function formatDate(value?: string) {
   return value ? new Date(value).toLocaleString() : '-'
 }
@@ -279,12 +316,32 @@ async function fetchData() {
   loading.value = true
   try {
     const range = monthRange()
-    tasks.value = await taskApi.getCalendarTasks(range.start, range.end)
+    const [calendarMap, taskRows] = await Promise.all([
+      fetchCalendarInfo(),
+      taskApi.getCalendarTasks(range.start, range.end),
+    ])
+    calendarByDate.value = calendarMap
+    tasks.value = taskRows
   } catch {
     ElMessage?.error?.('日程加载失败')
   } finally {
     loading.value = false
   }
+}
+
+async function fetchCalendarInfo() {
+  const months = new Map<string, Date>()
+  for (const day of days.value) {
+    months.set(toMonthKey(day.date), day.date)
+  }
+  const result: Record<string, PublicCalendarDayDTO> = {}
+  await Promise.all(Array.from(months.values()).map(async (date) => {
+    const month = await getCalendarMonth(date.getFullYear(), date.getMonth() + 1)
+    for (const item of month?.days || []) {
+      result[item.date] = item
+    }
+  }))
+  return result
 }
 
 function shiftMonth(offset: number) {
@@ -556,10 +613,15 @@ useHead({ title: '我的日程 - ch-wiki' })
 </script>
 
 <style scoped>
+/* =========================================================
+   整体卡片化:外层用圆角白底,内嵌的 header / 网格也走同一调色板,
+   形成层次柔和的"面板"感。
+   ========================================================= */
 .calendar-page {
-  background: #fff;
-  border-radius: 8px;
-  padding: 24px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 24px 28px 28px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 .page-header {
   display: flex;
@@ -570,116 +632,339 @@ useHead({ title: '我的日程 - ch-wiki' })
   flex-wrap: wrap;
 }
 .page-header h1 {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: 22px;
-  color: #303133;
+  font-weight: 600;
+  color: #1f2329;
+  letter-spacing: 0.3px;
 }
 .page-header p {
   margin: 0;
-  color: #909399;
+  color: #86909c;
   font-size: 13px;
 }
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-.month-actions {
-  display: flex;
-  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
+/* 月份切换:pill 化容器,中央大字号显示当前年月 */
+.month-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f2f3f5;
+}
+.month-actions :deep(.el-button) {
+  border: none;
+  background: transparent;
+  color: #4e5969;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.month-actions :deep(.el-button:hover) {
+  background: rgba(64, 158, 255, 0.12);
+  color: #1677b8;
+}
+.month-actions strong {
+  display: inline-flex;
+  align-items: center;
+  min-width: 130px;
+  height: 30px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2129;
+  background: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* =========================================================
+   网格整体:圆角与外层卡片呼应,表头与日期格分隔线柔和
+   ========================================================= */
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-.week-header {
+  border-radius: 10px;
+  overflow: hidden;
   border: 1px solid #e4e7ed;
-  border-bottom: 0;
   background: #f5f7fa;
 }
+.week-header {
+  background: #fafbfc;
+  border-bottom: 1px solid #ebeef5;
+}
 .week-header span {
-  padding: 10px;
+  padding: 12px 8px;
   text-align: center;
-  color: #606266;
+  color: #4e5969;
   font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+}
+.week-header span:first-child,
+.week-header span:last-child {
+  color: #f5222d;
 }
 .month-grid {
-  border-left: 1px solid #e4e7ed;
-  border-top: 1px solid #e4e7ed;
+  background: #ebeef5;
+  gap: 1px;
+  border-top: 0;
 }
+
+/* =========================================================
+   日期单元格
+   ========================================================= */
 .day-cell {
-  min-height: 112px;
-  padding: 8px;
+  position: relative;
+  min-height: 116px;
+  padding: 8px 8px 10px;
   border: 0;
-  border-right: 1px solid #e4e7ed;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fff;
+  background: #ffffff;
   text-align: left;
   cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+}
+.day-cell:hover {
+  background: #f5f9ff;
+  box-shadow: inset 0 0 0 1px #c6dafc;
+  z-index: 1;
+}
+.day-cell:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px #409eff;
+}
+
+/* 周末(六/日)默认弱化 */
+.day-cell.weekend:not(.muted):not(.today) .day-number {
+  color: #c45656;
+}
+
+/* 法定休 / 调休班 */
+.day-cell.holiday:not(.muted) {
+  background: #fff8f1;
+}
+.day-cell.adjust:not(.muted) {
+  background: #f1f6ff;
 }
 .day-cell.muted {
-  background: #fafafa;
+  background: #f7f8fa;
   color: #b0b3ba;
 }
-.day-cell.today .day-number {
-  color: #409eff;
-  font-weight: 700;
+.day-cell.muted.holiday {
+  background: #fdf5ed;
 }
-.day-number,
+.day-cell.muted.adjust {
+  background: #f0f4fd;
+}
+
+/* 今天:左上角小蓝点 + 数字加粗 */
+.day-cell.today {
+  background: linear-gradient(180deg, #e8f3ff 0%, #f6fbff 100%);
+}
+.day-cell.today:hover {
+  background: linear-gradient(180deg, #d6e8ff 0%, #e8f3ff 100%);
+}
+.day-cell .is-today {
+  position: relative;
+  font-weight: 700;
+  color: #1677b8 !important;
+}
+.today-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #1677b8;
+  margin-right: 4px;
+  vertical-align: middle;
+  position: relative;
+  top: -2px;
+}
+
+.day-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 22px;
+}
+.day-number {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+.day-flag {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  text-align: center;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.holiday-flag {
+  color: #c4561d;
+  background: #ffe1c2;
+}
+.adjust-flag {
+  color: #2458a6;
+  background: #d3e2ff;
+}
+
+.lunar-line,
+.calendar-marker,
 .event-dot,
 .more {
-  display: block;
-}
-.event-dot {
-  margin-top: 6px;
-  padding: 3px 6px;
-  border-radius: 4px;
-  color: #303133;
-  background: #fdf6ec;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.lunar-line {
+  min-height: 16px;
+  color: #a3a8b3;
+  font-size: 11px;
+  line-height: 16px;
+}
+.calendar-marker {
+  color: #c4561d;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+/* =========================================================
+   任务事件行:左侧小色条 + 文字胶囊
+   ========================================================= */
+.event-dot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 2px 6px 2px 8px;
+  border-radius: 4px;
   font-size: 12px;
+  line-height: 18px;
+  color: #303133;
+  background: #f3f4f5;
+  max-width: 100%;
 }
-.status-1 {
-  background: #ecf5ff;
+.event-dot__bar {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: #c9cdd4;
 }
-.status-2 {
-  background: #f0f9eb;
+.event-dot.status-0 {
+  background: #fff4e0;
+  color: #8a5a14;
 }
-.status-3 {
-  background: #f4f4f5;
+.event-dot.status-0 .event-dot__bar,
+.event-dot__bar.status-0 {
+  background: #f59e0b;
 }
+.event-dot.status-1 {
+  background: #e8f3ff;
+  color: #1d4ed8;
+}
+.event-dot.status-1 .event-dot__bar,
+.event-dot__bar.status-1 {
+  background: #3b82f6;
+}
+.event-dot.status-2 {
+  background: #ebfae1;
+  color: #1f7a3b;
+}
+.event-dot.status-2 .event-dot__bar,
+.event-dot__bar.status-2 {
+  background: #22c55e;
+}
+.event-dot.status-3 {
+  background: #f1f2f4;
+  color: #8c939c;
+  text-decoration: line-through;
+  text-decoration-color: rgba(140, 147, 156, 0.5);
+}
+.event-dot.status-3 .event-dot__bar,
+.event-dot__bar.status-3 {
+  background: #b6b9c0;
+}
+
 .more {
-  margin-top: 4px;
-  color: #909399;
-  font-size: 12px;
+  margin-top: 2px;
+  color: #86909c;
+  font-size: 11px;
+  line-height: 16px;
 }
+
+/* =========================================================
+   任务弹窗列表:左侧色条 + 状态圆点,视觉层次更清晰
+   ========================================================= */
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 .task-row {
+  position: relative;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #ebeef5;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px 14px 22px;
+  border-bottom: 1px solid #f0f2f5;
+  transition: background-color 0.15s ease;
 }
+.task-row:last-child {
+  border-bottom: 0;
+}
+.task-row:hover {
+  background: #fafbfc;
+}
+.task-row__bar {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: #c9cdd4;
+}
+.task-row--status-0 .task-row__bar { background: #f59e0b; }
+.task-row--status-1 .task-row__bar { background: #3b82f6; }
+.task-row--status-2 .task-row__bar { background: #22c55e; }
+.task-row--status-3 .task-row__bar { background: #b6b9c0; }
+
 .task-main {
   flex: 1;
   min-width: 0;
 }
 .task-main strong {
-  font-size: 14px;
-  color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d2129;
+  word-break: break-word;
 }
 .task-detail {
   margin: 4px 0 0;
-  color: #606266;
+  color: #4e5969;
   font-size: 13px;
   line-height: 1.5;
   display: -webkit-box;
@@ -689,12 +974,12 @@ useHead({ title: '我的日程 - ch-wiki' })
 }
 .task-time {
   margin: 6px 0 0;
-  color: #909399;
+  color: #86909c;
   font-size: 12px;
 }
 .task-row p {
   margin: 6px 0 0;
-  color: #909399;
+  color: #86909c;
   font-size: 13px;
 }
 .task-actions {
@@ -705,15 +990,8 @@ useHead({ title: '我的日程 - ch-wiki' })
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-/* 未排日程弹窗：内部列表区固定最大高度并可滚动，避免长任务撑爆弹窗 */
-.task-list {
-  max-height: 60vh;
-  overflow-y: auto;
-}
-/* el-time-picker 弹层里永远展示 时/分/秒 三列，没有 prop 可以关。
- 这里只保留 时/分 两列: format="HH:mm" 已经让输入框不再显示秒，
- 面板里把第三列（秒）整个隐藏。:deep() 是因为面板 teleport 到了 body。
- 同时把弹层的 grid 列数从 3 改回 2，避免秒列被隐藏后留下空白。 */
+
+/* el-time-picker 弹层里只显示 时/分 两列 */
 :deep(.el-time-spinner) {
   grid-template-columns: repeat(2, 1fr) !important;
 }
@@ -721,9 +999,9 @@ useHead({ title: '我的日程 - ch-wiki' })
   display: none !important;
 }
 :deep(.el-time-panel__footer .el-time-panel__btn.confirm) {
-  /* 隐藏秒后，"确定"按钮的 HH:mm:ss 占位标签对齐还在，仅做兜底 */
   font-variant-numeric: tabular-nums;
 }
+
 @media (max-width: 768px) {
   .page-header,
   .task-row {
@@ -731,11 +1009,16 @@ useHead({ title: '我的日程 - ch-wiki' })
     align-items: flex-start;
   }
   .day-cell {
-    min-height: 84px;
+    min-height: 90px;
     padding: 6px;
   }
   .event-dot {
-    padding: 2px 4px;
+    padding: 2px 4px 2px 6px;
+    font-size: 11px;
+  }
+  .month-actions strong {
+    min-width: 100px;
+    font-size: 14px;
   }
 }
 </style>

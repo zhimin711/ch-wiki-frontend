@@ -34,6 +34,11 @@
         <strong>{{ stat(summary.totalClassifies) }}</strong>
         <p>公共分类</p>
       </NuxtLink>
+      <NuxtLink to="/workbench/calendar" class="wb-card">
+        <el-icon :size="32"><Calendar /></el-icon>
+        <h3>日历管理</h3>
+        <p>维护节假日和调休规则</p>
+      </NuxtLink>
       <NuxtLink to="/workbench/apikey-config" class="wb-card">
         <el-icon :size="32"><Key /></el-icon>
         <h3>API Key 配置</h3>
@@ -44,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { Document, Folder, Grid, Key, Picture, Refresh } from '@element-plus/icons-vue'
+import { Calendar, Document, Folder, Grid, Key, Picture, Refresh } from '@element-plus/icons-vue'
 import type { AdminSummary } from '~/services/admin-api'
 
 definePageMeta({

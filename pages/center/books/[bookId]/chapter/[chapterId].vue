@@ -3,11 +3,16 @@
     <el-skeleton v-if="loading" :rows="10" animated />
     <template v-else-if="chapter">
       <div class="page-header">
-        <div>
-          <NuxtLink :to="`/center/books/${bookId}`" class="back-link">返回目录</NuxtLink>
+        <div class="page-header__main">
+          <div class="page-header__links">
+            <NuxtLink :to="`/center/books/${bookId}`" class="back-link">返回目录</NuxtLink>
+            <NuxtLink :to="`/center/books/${bookId}/edit`" class="table-link">返回书籍编辑</NuxtLink>
+          </div>
           <h1>{{ chapterTitle }}</h1>
         </div>
-        <NuxtLink :to="`${route.path}/text`" class="table-link">纯文本查看</NuxtLink>
+        <div class="page-header__aside">
+          <NuxtLink :to="`${route.path}/text`" class="table-link">纯文本查看</NuxtLink>
+        </div>
       </div>
 
       <el-form label-position="top">
@@ -388,17 +393,47 @@ useHead({ title: () => `${chapterTitle.value} - 我的书籍` })
 .page-header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+.page-header__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.page-header__links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.page-header__aside {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  padding-top: 2px;
 }
 .page-header h1 {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 22px;
+  line-height: 1.4;
+  color: #1f2329;
+  word-break: break-word;
 }
 .back-link,
 .table-link {
   color: #1677b8;
   text-decoration: none;
+}
+.back-link:hover,
+.table-link:hover {
+  text-decoration: underline;
 }
 .form-grid {
   display: grid;

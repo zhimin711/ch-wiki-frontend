@@ -15,7 +15,7 @@ export interface AdminArticle {
   description?: string
   author?: string
   image?: string
-  showMode?: string
+  status?: number
   approveStatus?: string
   recommendType?: number | string
   publishAt?: string

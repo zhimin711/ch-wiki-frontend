@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22-alpine AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
+
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install -g npm@11.16.0 \
+    && npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NODE_ENV=production

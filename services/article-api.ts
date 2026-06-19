@@ -24,7 +24,6 @@ export interface UserArticleItem {
   countView?: number
   countComment?: number
   status?: number
-  showMode?: string
   approveStatus?: string
   content?: string
 }
@@ -48,8 +47,23 @@ export interface UserArticleSaveRequest {
   keywords?: string
   description?: string
   status?: number
-  showMode?: string
   content?: string
+  mediaIds?: string[]
+}
+
+export function extractArticleMediaIds(content?: string): string[] {
+  if (!content || typeof DOMParser === 'undefined') return []
+  const document = new DOMParser().parseFromString(content, 'text/html')
+  const mediaIds = new Set<string>()
+  const mediaIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
+  document.querySelectorAll<HTMLElement>('[data-media-id]').forEach((element) => {
+    const mediaId = element.dataset.mediaId?.trim()
+    const source = element.getAttribute('src') || element.getAttribute('poster')
+    if (!mediaId || !mediaIdPattern.test(mediaId)
+      || source !== `/api/media/${mediaId}/content`) return
+    mediaIds.add(mediaId)
+  })
+  return [...mediaIds]
 }
 
 function toPage<T>(data: PageResponse<T> | null): { list: T[]; total: number } {

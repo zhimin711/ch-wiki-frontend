@@ -15,9 +15,7 @@
         <el-option label="已发布" :value="1" />
       </el-select>
       <el-select v-model="query.approveStatus" clearable placeholder="审核">
-        <el-option label="待审核" value="WAIT" />
-        <el-option label="通过" value="PASS" />
-        <el-option label="拒绝" value="REJECT" />
+        <el-option v-for="opt in approveOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
       </el-select>
       <el-button type="primary" @click="reload">查询</el-button>
     </div>
@@ -84,18 +82,35 @@ const query = reactive({
   approveStatus: '',
 })
 
-function approveLabel(status?: string) {
-  if (status === 'PASS') return '通过'
-  if (status === 'REJECT') return '拒绝'
-  if (status === 'WAIT') return '待审核'
-  return '未提交'
+const approveOptions = [
+  { label: '待审核', value: '0' },
+  { label: '审核通过', value: '1' },
+  { label: '重新审核', value: '2' },
+  { label: '取消审核', value: '3' },
+  { label: '审核驳回', value: '4' },
+  { label: '审核中', value: '5' },
+  { label: '未知状态', value: '-1' },
+]
+
+const approveLabelMap: Record<string, string> = Object.fromEntries(
+  approveOptions.map(opt => [opt.value, opt.label]),
+)
+const approveTypeMap: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'primary'> = {
+  '0': 'warning',
+  '1': 'success',
+  '2': 'warning',
+  '3': 'info',
+  '4': 'danger',
+  '5': 'primary',
+  '-1': 'info',
 }
 
-function approveType(status?: string) {
-  if (status === 'PASS') return 'success'
-  if (status === 'REJECT') return 'danger'
-  if (status === 'WAIT') return 'warning'
-  return 'info'
+function approveLabel(status?: string | number) {
+  return approveLabelMap[String(status ?? '')] || '未知状态'
+}
+
+function approveType(status?: string | number) {
+  return approveTypeMap[String(status ?? '')] || 'info'
 }
 
 function formatDate(value?: string) {

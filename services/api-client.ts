@@ -18,6 +18,28 @@ export function extractData<T>(result: ApiResult<T>): T | null {
   return null
 }
 
+/**
+ * 与 extractData 类似，但当后端返回 success=false 时抛错，
+ * 让调用方的 try/catch 能弹出后端的 message。
+ * 默认 code 用空串,这样不会在异常类 message 上丢字段。
+ */
+export class ApiResultError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message || '请求失败')
+    this.name = 'ApiResultError'
+  }
+}
+
+export function requireData<T>(result: ApiResult<T>): T | null {
+  if (result.success) {
+    return extractData(result)
+  }
+  throw new ApiResultError(String(result.code ?? ''), result.message || '请求失败')
+}
+
 export interface PageData<T = any> {
   rows: T[]
   total: number

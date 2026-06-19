@@ -1067,8 +1067,10 @@ useHead({
 .article-content :deep(blockquote p) { margin-bottom: 0.5em; }
 .article-content :deep(blockquote p:last-child) { margin-bottom: 0; }
 
-/* 行内代码 */
-.article-content :deep(code) {
+/* 行内代码:排除 pre 内的 code,避免把它当 inline code 渲染(单行) */
+.article-content :deep(p > code),
+.article-content :deep(li > code),
+.article-content :deep(:not(pre) > code):not(pre code) {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.88em;
   padding: 2px 6px;
@@ -1101,6 +1103,13 @@ useHead({
   overflow-x: auto;
   font-size: inherit;
   border-radius: 0;
+  /* 关键:显式声明 white-space: pre,避免某些 reset/框架覆盖浏览器默认,
+     导致代码块渲染成单行。同时配 tab-size 4 保持缩进对齐。 */
+  white-space: pre;
+  tab-size: 4;
+  -moz-tab-size: 4;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 .article-content :deep(.code-block-header) {
   display: flex;
@@ -1139,6 +1148,12 @@ useHead({
   line-height: 1.7;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  /* 关键:显式 white-space: pre + tab-size 4,避免浏览器/reset 让代码块成单行 */
+  white-space: pre;
+  tab-size: 4;
+  -moz-tab-size: 4;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 .article-content :deep(pre code) {
   background: transparent;
@@ -1146,6 +1161,7 @@ useHead({
   padding: 0;
   font-size: inherit;
   border-radius: 0;
+  white-space: pre;
 }
 
 /* 链接 */

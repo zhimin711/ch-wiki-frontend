@@ -1,8 +1,10 @@
 import type { ApiResult } from './api-client'
-import { extractData, useApiClient } from './api-client'
+import { extractData, requireData, useApiClient } from './api-client'
 import type { PageResponse } from './article-api'
+import type { APIClassifyDTO } from './public-api'
 
 export type BookContentType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'MIX'
+export type UserBookType = 'TEXT' | 'IMAGE'
 
 export interface UserBookChapter {
   id: string
@@ -28,6 +30,7 @@ export interface UserBook {
   title?: string
   type?: string
   classify?: string
+  classifyName?: string
   sort?: number
   image?: string
   srcType?: number
@@ -79,6 +82,13 @@ export interface UserBookChapterSaveRequest {
   content?: string
 }
 
+export interface ChapterImportResponse {
+  imageUrls: string[]
+  count: number
+  scaled: boolean
+  content: string
+}
+
 function toPage<T>(data: PageResponse<T> | null) {
   return {
     list: data?.rows || data?.list || [],
@@ -95,9 +105,16 @@ export function bookStatusLabel(status?: string) {
 }
 
 export function bookTypeLabel(type?: string) {
-  if (type === '1') return '小说'
-  if (type === '2') return '漫画'
-  return '其他'
+  if (normalizeBookType(type) === 'TEXT') return '文字类型'
+  if (normalizeBookType(type) === 'IMAGE') return '图画类型'
+  return '未知'
+}
+
+export function normalizeBookType(type?: string): UserBookType | '' {
+  const value = `${type || ''}`.trim().toUpperCase()
+  if (value === 'TEXT' || value === '1' || value === '0') return 'TEXT'
+  if (value === 'IMAGE' || value === '2' || value === '3') return 'IMAGE'
+  return ''
 }
 
 export function flattenBookChapters(chapters: UserBookChapter[] = []): UserBookChapter[] {
@@ -111,6 +128,13 @@ export function useUserBookApi() {
     async getBooks(params: UserBookQuery) {
       const { data } = await client.get<ApiResult<PageResponse<UserBook>>>('/api/user/books', { params })
       return toPage(extractData(data))
+    },
+
+    async getBookClassifies() {
+      const { data } = await client.get<ApiResult<APIClassifyDTO[]>>('/api/public/classify/list', {
+        params: { bizType: 'BOOK' },
+      })
+      return extractData(data) || []
     },
 
     async createBook(request: UserBookSaveRequest) {
@@ -133,6 +157,11 @@ export function useUserBookApi() {
       return extractData(data)
     },
 
+    async fixCatalog(bookId: number) {
+      const { data } = await client.post<ApiResult<boolean>>(`/api/user/books/${bookId}/fix`)
+      return extractData(data)
+    },
+
     async getChapters(bookId: number) {
       const { data } = await client.get<ApiResult<UserBookChapter[]>>(`/api/user/books/${bookId}/chapters`)
       return extractData(data) || []
@@ -140,7 +169,9 @@ export function useUserBookApi() {
 
     async createChapter(bookId: number, request: UserBookChapterSaveRequest) {
       const { data } = await client.post<ApiResult<string>>(`/api/user/books/${bookId}/chapters`, request)
-      return extractData(data)
+      // 用 requireData 而非 extractData,success=false 时抛错,
+      // 让页面 try/catch 能弹后端的 message（例如 "上一章节参数错误/无效-..."）
+      return requireData(data)
     },
 
     async getChapter(bookId: number, chapterId: string) {
@@ -161,6 +192,29 @@ export function useUserBookApi() {
     async deleteChapter(bookId: number, chapterId: string) {
       const { data } = await client.delete<ApiResult<boolean>>(
         `/api/user/books/${bookId}/chapters/${encodeURIComponent(chapterId)}`,
+      )
+      return extractData(data)
+    },
+
+    async importChapterZip(
+      bookId: number,
+      chapterId: string,
+      file: File,
+      onProgress?: (percent: number) => void,
+    ): Promise<ChapterImportResponse> {
+      const form = new FormData()
+      form.append('file', file)
+      const { data } = await client.post<ApiResult<ChapterImportResponse>>(
+        `/api/user/books/${bookId}/chapters/${encodeURIComponent(chapterId)}/import`,
+        form,
+        {
+          headers: { 'Content-Type': undefined as any },
+          timeout: 5 * 60 * 1000,
+          onUploadProgress: (event) => {
+            if (!onProgress || !event.total) return
+            onProgress(Math.min(100, Math.round((event.loaded * 100) / event.total)))
+          },
+        },
       )
       return extractData(data)
     },

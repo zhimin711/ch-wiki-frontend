@@ -11,9 +11,8 @@
     <div class="filter-bar">
       <el-input v-model="query.title" placeholder="书名或标题" clearable @keyup.enter="reload" />
       <el-select v-model="query.type" clearable placeholder="类型">
-        <el-option label="小说" value="1" />
-        <el-option label="漫画" value="2" />
-        <el-option label="其他" value="0" />
+        <el-option label="文字类型" value="TEXT" />
+        <el-option label="图画类型" value="IMAGE" />
       </el-select>
       <el-select v-model="query.status" clearable placeholder="状态">
         <el-option label="新书" value="0" />
@@ -64,13 +63,20 @@
     <CommonPagination v-model="pageNum" :total="total" :page-size="pageSize" />
 
     <el-dialog v-model="createVisible" title="新建书籍" width="min(680px, 94vw)">
-      <BooksBookMetaForm :saving="creating" submit-text="创建书籍" @submit="createBook" />
+      <BooksBookMetaForm
+        :categories="bookClassifies"
+        :saving="creating"
+        submit-text="创建书籍"
+        @submit="createBook"
+      />
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { normalizeBackendUrl } from '~/composables/useAvatar'
+import { usePrivateMediaUrlMap } from '~/composables/usePrivateMediaUrl'
+import type { APIClassifyDTO } from '~/services/public-api'
 import type { UserBook, UserBookSaveRequest } from '~/services/user-book-api'
 
 definePageMeta({ layout: 'center', middleware: 'auth' })
@@ -80,13 +86,27 @@ const loading = ref(false)
 const creating = ref(false)
 const createVisible = ref(false)
 const records = ref<UserBook[]>([])
+const bookClassifies = ref<APIClassifyDTO[]>([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = 10
 const query = reactive({ title: '', type: '', status: '' })
 
+const { resolveUrls, getDisplayUrl } = usePrivateMediaUrlMap()
+
 function cover(book: UserBook) {
-  return normalizeBackendUrl(book.image)
+  const raw = normalizeBackendUrl(book.image)
+  // 私有 URL (/api/media/{id}/content) 需要通过 axios 携带 token 下载，
+  // getDisplayUrl 返回解析后的 ObjectURL；公开 URL 原样返回。
+  return getDisplayUrl(raw)
+}
+
+async function loadBookClassifies() {
+  try {
+    bookClassifies.value = await api.getBookClassifies()
+  } catch {
+    ElMessage?.error?.('书籍分类加载失败')
+  }
 }
 
 async function fetchData() {
@@ -95,6 +115,9 @@ async function fetchData() {
     const page = await api.getBooks({ ...query, pageNum: pageNum.value, pageSize })
     records.value = page.list
     total.value = page.total
+    // 批量解析封面中的私有媒体 URL（/api/media/{id}/content）
+    // 浏览器 <img> 无法携带 Authorization header，需要转为 ObjectURL
+    void resolveUrls(page.list.map(book => normalizeBackendUrl(book.image)))
   } catch {
     ElMessage?.error?.('书籍加载失败')
   } finally {
@@ -136,7 +159,10 @@ async function removeBook(book: UserBook) {
 }
 
 watch(pageNum, fetchData)
-onMounted(fetchData)
+onMounted(() => {
+  loadBookClassifies()
+  fetchData()
+})
 useHead({ title: '我的书籍 - ch-wiki' })
 </script>
 

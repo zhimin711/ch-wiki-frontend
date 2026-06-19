@@ -28,8 +28,14 @@ export function useAuth() {
       store.setAvatar(avatar)
     },
 
-    /** 登出 */
+    /** 登出:清前端 store,同时清掉后端写入的 WIKI_TOKEN cookie,
+     * 否则私域图片仍能通过 cookie 鉴权。 */
     logout(redirectTo: string | null = '/login') {
+      if (typeof document !== 'undefined') {
+        // 后端 CookieUtils.addAuthCookie 写入的是 HttpOnly=false,
+        // 同一域下 JS 可以覆盖/删除。
+        document.cookie = 'WIKI_TOKEN=; Path=/; Max-Age=0; SameSite=Lax'
+      }
       store.logout()
       if (redirectTo) {
         router.push(normalizeAuthRedirect(redirectTo, '/login'))

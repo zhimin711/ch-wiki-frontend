@@ -49,6 +49,23 @@ export interface AdminImage {
   createAt?: string
 }
 
+export interface AdminAd {
+  id: string | number
+  type?: string
+  title?: string
+  image?: string
+  url?: string
+  keywords?: string
+  sort?: number
+  description?: string
+  srcType?: string
+  status?: string
+  validAt?: string | null
+  invalidAt?: string | null
+  createAt?: string
+  updateAt?: string
+}
+
 export interface AdminClassify {
   id: string | number
   pid?: string
@@ -177,6 +194,24 @@ export function useAdminApi() {
     async updateImage(id: string | number, payload: Partial<AdminImage>) {
       const { data } = await client.put<ApiResult<AdminImage>>(`/api/admin/images/${id}`, payload)
       return unwrap(data, {} as AdminImage)
+    },
+    async listAds(query: AdminPageQuery) {
+      const { data } = await client.get<PageResult<AdminAd>>('/api/admin/ads', {
+        params: cleanParams(query),
+      })
+      return unwrapPage(data)
+    },
+    async createAd(payload: Partial<AdminAd>) {
+      const { data } = await client.post<ApiResult<AdminAd>>('/api/admin/ads', payload)
+      return unwrap(data, {} as AdminAd)
+    },
+    async updateAd(id: string | number, payload: Partial<AdminAd>) {
+      const { data } = await client.put<ApiResult<AdminAd>>(`/api/admin/ads/${id}`, payload)
+      return unwrap(data, {} as AdminAd)
+    },
+    async updateAdStatus(id: string | number, status: string) {
+      const { data } = await client.patch<ApiResult<boolean>>(`/api/admin/ads/${id}/status`, { status })
+      return unwrap(data, false)
     },
     async listClassifies(query: AdminPageQuery) {
       const { data } = await client.get<PageResult<AdminClassify>>('/api/admin/classifies', {

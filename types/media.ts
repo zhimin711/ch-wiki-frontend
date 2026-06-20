@@ -11,6 +11,7 @@ export type MediaPurpose =
   | 'IMAGE_LIBRARY'
   | 'VIDEO_LIBRARY'
   | 'AUDIO_CONTENT'
+  | 'AD_COVER'
 
 export type MediaState =
   | 'PRIVATE_READY'

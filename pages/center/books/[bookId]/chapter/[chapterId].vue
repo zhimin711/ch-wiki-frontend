@@ -9,6 +9,9 @@
             <NuxtLink :to="`/center/books/${bookId}/edit`" class="table-link">返回书籍编辑</NuxtLink>
           </div>
           <h1>{{ chapterTitle }}</h1>
+          <el-tag :type="chapter.status === 1 ? 'success' : 'warning'" effect="plain">
+            {{ bookChapterStatusLabel(chapter.status) }}
+          </el-tag>
         </div>
         <div class="page-header__aside">
           <NuxtLink :to="`${route.path}/text`" class="table-link">纯文本查看</NuxtLink>
@@ -53,7 +56,8 @@
         </el-form-item>
 
         <div class="actions">
-          <el-button type="primary" :loading="saving" @click="saveChapter">保存正文</el-button>
+          <el-button :loading="savingStatus === 0" :disabled="publishing" @click="saveChapter(0)">保存草稿</el-button>
+          <el-button type="primary" :loading="savingStatus === 1" :disabled="savingDraft" @click="saveChapter(1)">发布正文</el-button>
           <el-button :loading="importing" @click="triggerImport">{{ importButtonLabel }}</el-button>
           <el-progress
             v-if="importing && importProgress > 0"
@@ -80,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import type { BookContentType, UserBookChapter } from '~/services/user-book-api'
+import type { BookChapterStatus, BookContentType, UserBookChapter } from '~/services/user-book-api'
 
 definePageMeta({ layout: 'center', middleware: 'auth' })
 
@@ -88,13 +92,15 @@ const route = useRoute()
 const api = useUserBookApi()
 const mediaApi = useMediaApi()
 const loading = ref(true)
-const saving = ref(false)
+const savingStatus = ref<BookChapterStatus | null>(null)
 const importing = ref(false)
 const importProgress = ref(0)
 const chapter = ref<UserBookChapter | null>(null)
 const importInputRef = ref<HTMLInputElement | null>(null)
 const bookId = computed(() => Number(route.params.bookId))
 const chapterId = computed(() => `${route.params.chapterId}`)
+const savingDraft = computed(() => savingStatus.value === 0)
+const publishing = computed(() => savingStatus.value === 1)
 
 const form = reactive({
   number: '',
@@ -355,23 +361,26 @@ async function loadChapter() {
   }
 }
 
-async function saveChapter() {
+async function saveChapter(status: BookChapterStatus) {
   if (!chapter.value) return
-  saving.value = true
+  savingStatus.value = status
   try {
     const ok = await api.updateChapter(bookId.value, chapter.value.id, {
       ...form,
       pid: chapter.value.pid,
       pre: chapter.value.pre,
       leaf: true,
-      status: chapter.value.status ?? 1,
+      status,
     })
-    if (ok) ElMessage?.success?.('章节正文已保存')
+    if (ok) {
+      chapter.value.status = status
+      ElMessage?.success?.(status === 1 ? '章节正文已发布' : '草稿已保存')
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : '章节保存失败'
     ElMessage?.error?.(message)
   } finally {
-    saving.value = false
+    savingStatus.value = null
   }
 }
 

@@ -139,8 +139,9 @@ async function createBook(value: UserBookSaveRequest) {
       createVisible.value = false
       await navigateTo(`/center/books/${id}/edit`)
     }
-  } catch {
-    ElMessage?.error?.('创建书籍失败')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '创建书籍失败'
+    ElMessage?.error?.(message)
   } finally {
     creating.value = false
   }

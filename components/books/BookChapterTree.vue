@@ -24,6 +24,16 @@
         >
           {{ item.leaf === false || item.id === '-' ? '目录' : contentTypeLabel(item.contentType) }}
         </el-tag>
+        <el-tag
+            v-if="item.id !== '-' && item.leaf !== false && item.status !== 1"
+            size="small"
+            type="warning"
+            effect="plain"
+            round
+            class="chapter-row__tag"
+        >
+          草稿
+        </el-tag>
       </button>
       <NuxtLink
           v-else-if="item.id !== '-' && item.leaf !== false"
@@ -32,6 +42,16 @@
       >
         <span class="chapter-row__icon"><el-icon><Document /></el-icon></span>
         <span class="chapter-row__title">{{ chapterTitle(item) }}</span>
+        <el-tag
+            v-if="item.status !== 1"
+            size="small"
+            type="warning"
+            effect="plain"
+            round
+            class="chapter-row__tag"
+        >
+          草稿
+        </el-tag>
         <span class="chapter-row__suffix">编辑 →</span>
       </NuxtLink>
       <div

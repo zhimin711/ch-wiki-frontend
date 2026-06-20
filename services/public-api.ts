@@ -1,5 +1,5 @@
 import type { ApiResult, PageResult } from './api-client'
-import { extractData, extractPageData, useApiClient } from './api-client'
+import { extractData, extractPageData, requireData, useApiClient } from './api-client'
 import { normalizeBackendUrl } from '~/composables/useAvatar'
 
 export interface PublicHomeAdItem {
@@ -64,6 +64,15 @@ export interface PublicArticleDetailDTO {
   avgScore: number
   content: string
   recommendArticles: PublicArticleCardDTO[]
+}
+
+export interface PublicArticleCommentDTO {
+  id: number
+  articleId: number
+  nickname: string
+  avatar: string
+  content: string
+  createAt: number | null
 }
 
 export interface PublicResourceCardDTO {
@@ -321,9 +330,15 @@ export function usePublicApi() {
     /** 获取文章评论 */
     async getArticleComments(id: number, pageNum = 1, pageSize = 6) {
       return safePage(async () => {
-        const { data } = await client.get<PageResult<any>>(`/api/public/articles/${id}/comments`, { params: { pageNum, pageSize } })
+        const { data } = await client.get<PageResult<PublicArticleCommentDTO>>(`/api/public/articles/${id}/comments`, { params: { pageNum, pageSize } })
         return data
       })
+    },
+
+    /** 提交文章评论 */
+    async createArticleComment(id: number, content: string) {
+      const { data } = await client.post<ApiResult<PublicArticleCommentDTO>>(`/api/public/articles/${id}/comments`, { content })
+      return requireData(data)
     },
 
     /** 获取文档资源列表 */

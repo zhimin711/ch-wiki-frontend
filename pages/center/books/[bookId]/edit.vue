@@ -214,8 +214,9 @@ async function saveBook(value: UserBookSaveRequest) {
       ElMessage?.success?.('书籍信息已保存')
       await loadData(selected.value?.id)
     }
-  } catch {
-    ElMessage?.error?.('书籍保存失败')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '书籍保存失败'
+    ElMessage?.error?.(message)
   } finally {
     savingBook.value = false
   }
@@ -242,7 +243,7 @@ async function saveChapter() {
       ...(newPre ? { pre: newPre } : {}),
       leaf: selected.value.leaf !== false,
       contentType: nodeForm.contentType,
-      status: selected.value.status ?? 1,
+      status: selected.value.status ?? 0,
     }
     if (await api.updateChapter(book.value.id, selected.value.id, request)) {
       ElMessage?.success?.('节点已保存')
@@ -317,7 +318,7 @@ async function createChapter() {
       number: addForm.number,
       name: addForm.name,
       contentType: addForm.leaf ? addForm.contentType : 'TEXT',
-      status: 1,
+      status: 0,
       content: '',
     })
     if (id) {

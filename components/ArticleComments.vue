@@ -35,10 +35,10 @@
           </span>
           <span v-else-if="replyTo" class="composer-tip">
             回复
-            <strong>@{{ replyTo.nickname || replyTo.username }}</strong>
+            <strong>@{{ replyTo.nickname || '匿名用户' }}</strong>
             <el-button link size="small" @click="cancelReply">取消</el-button>
           </span>
-          <span v-else class="composer-tip">支持 Markdown 语法</span>
+          <span v-else class="composer-tip">请友善交流，评论发布后公开可见</span>
           <el-button
             type="primary"
             size="small"
@@ -63,10 +63,10 @@
 
     <ul v-else class="comment-list">
       <li v-for="c in comments" :key="c.id" class="comment-item">
-        <el-avatar :size="40" :src="c.avatar || defaultAvatarFor(c.nickname || c.username)" :alt="c.nickname || c.username" />
+        <el-avatar :size="40" :src="resolveDisplayImage(c.avatar, c.nickname, 40)" :alt="c.nickname" />
         <div class="comment-body">
           <div class="comment-meta">
-            <span class="comment-name">{{ c.nickname || c.username || '匿名用户' }}</span>
+            <span class="comment-name">{{ c.nickname || '匿名用户' }}</span>
             <span class="comment-time">{{ formatRelative(c.createAt) }}</span>
           </div>
           <div class="comment-content">{{ c.content }}</div>
@@ -78,14 +78,6 @@
             >
               <el-icon><ChatLineSquare /></el-icon>
               回复
-            </button>
-            <button
-              v-if="canDelete(c)"
-              class="action-btn action-danger"
-              @click="onDelete(c)"
-            >
-              <el-icon><Delete /></el-icon>
-              删除
             </button>
           </div>
         </div>
@@ -110,34 +102,20 @@
 import {
   ChatLineRound,
   ChatLineSquare,
-  Delete,
   InfoFilled,
 } from '@element-plus/icons-vue'
 import { usePublicApi } from '~/services/public-api'
+import type { PublicArticleCommentDTO } from '~/services/public-api'
 
-interface CommentDTO {
-  id: number | string
-  parentId?: number | string | null
-  userId?: number | string
-  username?: string
-  nickname?: string
-  avatar?: string
-  content: string
-  createAt: number | string | null
-}
+type CommentDTO = PublicArticleCommentDTO
 
 const props = defineProps<{ articleId: number }>()
 
-const { getArticleComments } = usePublicApi()
+const { getArticleComments, createArticleComment } = usePublicApi()
 
 const auth = useAuthStore()
 const isLoggedIn = computed(() => !!auth.token)
 const userNickname = computed(() => auth.nickname || auth.username || '')
-
-// 列表中其他用户的默认头像
-function defaultAvatarFor(name?: string) {
-  return generateAvatar(name || '?')
-}
 
 const comments = ref<CommentDTO[]>([])
 const total = ref(0)
@@ -152,14 +130,6 @@ const replyTo = ref<CommentDTO | null>(null)
 const canSubmit = computed(
   () => isLoggedIn.value && newComment.value.trim().length > 0 && !submitting.value,
 )
-
-function canDelete(c: CommentDTO) {
-  // 后端若没返回 userId，就用 username 兜底
-  return (
-    (c.userId != null && auth.username && String(c.userId) === String(auth.username)) ||
-    (c.username && auth.username && c.username === auth.username)
-  )
-}
 
 function formatRelative(ts: number | string | null) {
   if (!ts) return ''
@@ -193,7 +163,7 @@ async function load() {
 
 function onReply(c: CommentDTO) {
   replyTo.value = c
-  newComment.value = ''
+  newComment.value = `@${c.nickname || '匿名用户'} `
 }
 
 function cancelReply() {
@@ -204,38 +174,32 @@ async function submit() {
   if (!canSubmit.value) return
   submitting.value = true
   try {
-    // 简单用 alert 模拟提交成功 — 等后端提供 POST 接口
-    // 实际接入：await api.post(`/api/public/articles/${props.articleId}/comments`, {
-    //   content: newComment.value.trim(),
-    //   parentId: replyTo.value?.id ?? null,
-    // })
-    ElMessage?.success?.('评论已提交（前端演示，待后端接入 POST 接口）')
+    await createArticleComment(props.articleId, newComment.value.trim())
+    ElMessage?.success?.('评论已发布')
     newComment.value = ''
     replyTo.value = null
-    // 重新加载第一页
     pageNum.value = 1
     await load()
-  } catch {
-    // 静默
+  } catch (error) {
+    ElMessage?.error?.(getErrorMessage(error, '评论提交失败'))
   } finally {
     submitting.value = false
   }
 }
 
-function onDelete(c: CommentDTO) {
-  ElMessageBox?.confirm?.('确定要删除这条评论吗？', '提示', {
-    type: 'warning',
-  })
-    .then(async () => {
-      // await api.delete(`/api/public/articles/${props.articleId}/comments/${c.id}`)
-      ElMessage?.success?.('已删除（前端演示）')
-      await load()
-    })
-    .catch(() => {})
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null) {
+    const maybe = error as { response?: { data?: { message?: string } }; message?: string }
+    return maybe.response?.data?.message || maybe.message || fallback
+  }
+  return fallback
 }
 
 onMounted(load)
-watch(() => props.articleId, load)
+watch(() => props.articleId, () => {
+  pageNum.value = 1
+  load()
+})
 </script>
 
 <style scoped>

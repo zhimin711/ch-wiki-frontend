@@ -74,10 +74,22 @@
 
         <el-form-item v-if="form.type === 'WEEK'" label="每周执行日" prop="workdays">
           <el-checkbox-group v-model="form.workdays">
-            <el-checkbox-button v-for="day in weekdayOptions" :key="day.value" :value="day.value">
+            <el-checkbox-button
+              v-for="day in weekdayOptions"
+              :key="day.value"
+              :value="day.value"
+              :disabled="form.skipWeekend && isWeekendValue(day.value)"
+            >
               {{ day.label }}
             </el-checkbox-button>
           </el-checkbox-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.type === 'WEEK'" label="跳过日期">
+          <div class="skip-options">
+            <el-checkbox v-model="form.skipWeekend">跳过周末</el-checkbox>
+            <el-checkbox v-model="form.skipHoliday">跳过法定节假日</el-checkbox>
+          </div>
         </el-form-item>
 
         <el-form-item v-if="form.type === 'MONTH'" label="每月执行日" prop="planDate">
@@ -95,6 +107,7 @@
           <div class="time-range">
             <el-time-select
               v-model="form.startTime"
+              class="time-select"
               start="05:00"
               step="00:15"
               end="23:45"
@@ -103,6 +116,7 @@
             <span>至</span>
             <el-time-select
               v-model="form.endTime"
+              class="time-select"
               start="05:00"
               step="00:15"
               end="23:45"
@@ -165,6 +179,7 @@ const weekdayOptions = [
   { label: '周五', value: '6' },
   { label: '周六', value: '7' },
 ]
+const weekendValues = ['1', '7']
 
 const query = reactive({
   title: '',
@@ -178,6 +193,8 @@ const form = reactive({
   activeRange: [] as string[],
   planDate: '',
   workdays: [] as string[],
+  skipWeekend: false,
+  skipHoliday: false,
   lunarCalendar: false,
   startTime: '',
   endTime: '',
@@ -250,7 +267,9 @@ function scheduleLabel(row: PlanItem) {
       .split(',')
       .map(value => weekdayOptions.find(day => day.value === value)?.label)
       .filter(Boolean)
-    return labels.join('、') || '-'
+    const skipLabels = weeklySkipLabels(row)
+    const schedule = labels.join('、') || '-'
+    return skipLabels.length ? `${schedule}（${skipLabels.join('、')}）` : schedule
   }
   const date = new Date(row.planDate || '')
   if (Number.isNaN(date.getTime())) return '-'
@@ -259,9 +278,27 @@ function scheduleLabel(row: PlanItem) {
   return `${calendar} ${date.getMonth() + 1} 月 ${date.getDate()} 日`
 }
 
+function weeklySkipLabels(row: PlanItem) {
+  const labels: string[] = []
+  if (row.skipWeekend) labels.push('跳过周末')
+  if (row.skipHoliday) labels.push('跳过法定节假日')
+  return labels
+}
+
+function isWeekendValue(value: string) {
+  return weekendValues.includes(value)
+}
+
+function applySkipWeekend() {
+  if (!form.skipWeekend) return
+  form.workdays = form.workdays.filter(value => !isWeekendValue(value))
+}
+
 function resetSchedule() {
   form.planDate = ''
   form.workdays = []
+  form.skipWeekend = false
+  form.skipHoliday = false
   form.lunarCalendar = false
   formRef.value?.clearValidate?.(['planDate', 'workdays'])
 }
@@ -274,6 +311,8 @@ function resetForm() {
   form.activeRange = []
   form.planDate = ''
   form.workdays = []
+  form.skipWeekend = false
+  form.skipHoliday = false
   form.lunarCalendar = false
   form.startTime = ''
   form.endTime = ''
@@ -317,6 +356,9 @@ function openEdit(row: PlanItem) {
   form.activeRange = [datePart(row.planStartTime), datePart(row.planEndTime)]
   form.planDate = datePart(row.planDate)
   form.workdays = row.workdays ? row.workdays.split(',') : []
+  form.skipWeekend = Boolean(row.skipWeekend)
+  form.skipHoliday = Boolean(row.skipHoliday)
+  applySkipWeekend()
   form.lunarCalendar = Boolean(row.lunarCalendar)
   form.startTime = timePart(row.planStartTime)
   form.endTime = timePart(row.planEndTime)
@@ -335,6 +377,8 @@ async function savePlan() {
     lunarCalendar: form.type === 'YEAR' && form.lunarCalendar,
     planDate: form.type === 'MONTH' || form.type === 'YEAR' ? toIso(form.planDate) : null,
     workdays: form.type === 'WEEK' ? [...form.workdays].sort().join(',') : null,
+    skipWeekend: form.type === 'WEEK' && form.skipWeekend,
+    skipHoliday: form.type === 'WEEK' && form.skipHoliday,
     planStartTime: toIso(startDate, form.startTime),
     planEndTime: toIso(endDate, form.endTime),
   }
@@ -374,6 +418,10 @@ async function deletePlan(row: PlanItem) {
 }
 
 watch(pageNum, fetchData)
+watch(() => form.skipWeekend, () => {
+  applySkipWeekend()
+  formRef.value?.validateField?.('workdays')
+})
 onMounted(fetchData)
 
 useHead({ title: '周期计划 - ch-wiki' })
@@ -417,10 +465,15 @@ useHead({ title: '周期计划 - ch-wiki' })
   color: #909399;
 }
 .time-range,
+.skip-options,
 .year-date-row {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.time-select {
+  flex: 0 0 136px;
+  width: 136px;
 }
 @media (max-width: 768px) {
   .plans-page {
@@ -434,6 +487,7 @@ useHead({ title: '周期计划 - ch-wiki' })
     grid-template-columns: 1fr;
   }
   .time-range,
+  .skip-options,
   .year-date-row {
     align-items: flex-start;
     flex-direction: column;

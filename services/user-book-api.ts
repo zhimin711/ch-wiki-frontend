@@ -5,6 +5,7 @@ import type { APIClassifyDTO } from './public-api'
 
 export type BookContentType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'MIX'
 export type UserBookType = 'TEXT' | 'IMAGE'
+export type BookChapterStatus = 0 | 1
 
 export interface UserBookChapter {
   id: string
@@ -17,7 +18,7 @@ export interface UserBookChapter {
   sort?: number
   number?: string
   leaf?: boolean
-  status?: number
+  status?: BookChapterStatus
   srcUrl?: string
   content?: string
   children?: UserBookChapter[]
@@ -77,7 +78,7 @@ export interface UserBookChapterSaveRequest {
   name?: string
   number?: string
   leaf?: boolean
-  status?: number
+  status?: BookChapterStatus
   srcUrl?: string
   content?: string
 }
@@ -110,6 +111,10 @@ export function bookTypeLabel(type?: string) {
   return '未知'
 }
 
+export function bookChapterStatusLabel(status?: number) {
+  return status === 1 ? '已发布' : '草稿'
+}
+
 export function normalizeBookType(type?: string): UserBookType | '' {
   const value = `${type || ''}`.trim().toUpperCase()
   if (value === 'TEXT' || value === '1' || value === '0') return 'TEXT'
@@ -139,7 +144,7 @@ export function useUserBookApi() {
 
     async createBook(request: UserBookSaveRequest) {
       const { data } = await client.post<ApiResult<number>>('/api/user/books', request)
-      return extractData(data)
+      return requireData(data)
     },
 
     async getBook(bookId: number) {
@@ -149,7 +154,7 @@ export function useUserBookApi() {
 
     async updateBook(bookId: number, request: UserBookSaveRequest) {
       const { data } = await client.put<ApiResult<boolean>>(`/api/user/books/${bookId}`, request)
-      return extractData(data)
+      return requireData(data)
     },
 
     async deleteBook(bookId: number) {
@@ -186,7 +191,7 @@ export function useUserBookApi() {
         `/api/user/books/${bookId}/chapters/${encodeURIComponent(chapterId)}`,
         request,
       )
-      return extractData(data)
+      return requireData(data)
     },
 
     async deleteChapter(bookId: number, chapterId: string) {

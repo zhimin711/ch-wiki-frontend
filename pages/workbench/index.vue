@@ -37,7 +37,7 @@
       <NuxtLink to="/workbench/calendar" class="wb-card">
         <el-icon :size="32"><Calendar /></el-icon>
         <h3>日历管理</h3>
-        <p>维护节假日和调休规则</p>
+        <p>维护法定节假日和调休规则</p>
       </NuxtLink>
       <NuxtLink to="/workbench/apikey-config" class="wb-card">
         <el-icon :size="32"><Key /></el-icon>

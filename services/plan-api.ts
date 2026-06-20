@@ -12,6 +12,8 @@ export interface PlanItem {
   lunarCalendar?: boolean
   planDate?: string | null
   workdays?: string | null
+  skipWeekend?: boolean
+  skipHoliday?: boolean
   planStartTime: string
   planEndTime: string
   createAt?: string
@@ -31,6 +33,8 @@ export interface PlanSaveRequest {
   lunarCalendar: boolean
   planDate?: string | null
   workdays?: string | null
+  skipWeekend: boolean
+  skipHoliday: boolean
   planStartTime: string
   planEndTime: string
 }

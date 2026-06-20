@@ -16,6 +16,9 @@
       <el-menu-item index="/workbench/classify">
         <span>分类管理</span>
       </el-menu-item>
+      <el-menu-item index="/workbench/ad">
+        <span>广告管理</span>
+      </el-menu-item>
       <el-menu-item index="/workbench/calendar">
         <span>日历管理</span>
       </el-menu-item>

@@ -3,7 +3,7 @@
     <header class="admin-page__header">
       <div>
         <h1>日历管理</h1>
-        <p>维护节假日和调休规则，并生成指定年份的日历数据。</p>
+        <p>维护法定节假日和调休规则，并生成指定年份的日历数据。</p>
       </div>
       <div class="header-actions">
         <el-input-number
@@ -37,10 +37,10 @@
       :page="1"
       :page-size="records.length || 10"
       :total="0"
-      empty-text="暂无假日规则"
+      empty-text="暂无法定放假规则"
       @retry="fetchData"
     >
-      <el-table-column prop="name" label="节日名称" min-width="160" show-overflow-tooltip />
+      <el-table-column prop="name" label="法定节假日名称" min-width="180" show-overflow-tooltip />
       <el-table-column label="放假日期" min-width="260">
         <template #default="{ row }">
           <div class="date-tags">
@@ -86,7 +86,7 @@
       </el-table-column>
     </WorkbenchAdminDataTable>
 
-    <el-dialog v-model="editorVisible" :title="editing.id ? '编辑假日规则' : '新增假日规则'" width="min(620px, 94vw)">
+    <el-dialog v-model="editorVisible" :title="editing.id ? '编辑法定放假规则' : '新增法定放假规则'" width="min(620px, 94vw)">
       <el-form label-position="top">
         <div class="editor-grid">
           <el-form-item label="年份">
@@ -97,7 +97,7 @@
           </el-form-item>
         </div>
         <el-form-item label="名称" required>
-          <el-input v-model="editing.name" maxlength="80" placeholder="例如：春节" />
+          <el-input v-model="editing.name" maxlength="80" placeholder="例如：春节放假安排" />
         </el-form-item>
         <el-form-item label="放假日期" required>
           <el-date-picker
@@ -232,12 +232,12 @@ async function saveRule() {
       workdayDates: sortDates(editing.workdayDates),
       source: 'MANUAL',
     })
-    ElMessage.success('假日规则已保存')
+    ElMessage.success('法定放假规则已保存')
     needsGenerate.value = true
     editorVisible.value = false
     await fetchData()
   } catch (cause) {
-    ElMessage.error(getAdminErrorMessage(cause, '假日规则保存失败'))
+    ElMessage.error(getAdminErrorMessage(cause, '法定放假规则保存失败'))
   } finally {
     saving.value = false
   }

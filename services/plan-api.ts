@@ -3,6 +3,7 @@ import { extractData, useApiClient } from './api-client'
 import type { PageResponse } from './article-api'
 
 export type PlanType = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
+export type MonthDayPolicy = 'SKIP' | 'LAST_DAY'
 
 export interface PlanItem {
   id: number
@@ -14,6 +15,9 @@ export interface PlanItem {
   workdays?: string | null
   skipWeekend?: boolean
   skipHoliday?: boolean
+  weekendDelay?: boolean
+  workdayDelay?: boolean
+  monthDayPolicy?: MonthDayPolicy | null
   planStartTime: string
   planEndTime: string
   createAt?: string
@@ -35,6 +39,9 @@ export interface PlanSaveRequest {
   workdays?: string | null
   skipWeekend: boolean
   skipHoliday: boolean
+  weekendDelay: boolean
+  workdayDelay: boolean
+  monthDayPolicy?: MonthDayPolicy | null
   planStartTime: string
   planEndTime: string
 }

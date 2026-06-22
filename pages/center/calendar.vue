@@ -291,7 +291,7 @@ function toMonthKey(date: Date) {
 function calendarMarker(day?: PublicCalendarDayDTO) {
   if (!day) return ''
   if (day.solarTerm) return day.solarTerm
-  const festival = (day.festivals || []).find(item => item !== '传统节日' && item !== '法定假日')
+  const festival = (day.festivals || []).find(item => !['传统节日', '公历节日', '法定假日'].includes(item))
   return festival || ''
 }
 

@@ -33,7 +33,11 @@
     >
       <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
       <el-table-column prop="code" label="编码" min-width="190" show-overflow-tooltip />
-      <el-table-column prop="pid" label="父级路径" min-width="160" show-overflow-tooltip />
+      <el-table-column label="父级分类" min-width="190" show-overflow-tooltip>
+        <template #default="{ row }">
+          {{ parentPathLabel((row as AdminClassify).pid) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="sort" label="排序" width="76" align="center" />
       <el-table-column label="状态" width="86" align="center">
         <template #default="{ row }">
@@ -63,8 +67,22 @@
           />
         </el-form-item>
         <div class="editor-grid">
-          <el-form-item label="父级路径">
-            <el-input v-model="editing.pid" placeholder="0" />
+          <el-form-item label="父级分类">
+            <el-select
+              v-model="editing.pid"
+              :loading="parentLoading"
+              placeholder="选择父级分类"
+              class="parent-select"
+            >
+              <el-option label="顶级分类" value="0" />
+              <el-option
+                v-for="item in editableParentOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+                :disabled="item.disabled"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="排序">
             <el-input-number v-model="editing.sort" :min="0" :max="9999" controls-position="right" />
@@ -91,10 +109,12 @@ import type { AdminClassify } from '~/services/admin-api'
 definePageMeta({ layout: 'workbench', middleware: 'admin' })
 const adminApi = useAdminApi()
 const records = ref<AdminClassify[]>([])
+const parentRecords = ref<AdminClassify[]>([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
+const parentLoading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const editorVisible = ref(false)
@@ -112,6 +132,23 @@ const statusOptions = [
   { label: '停用', value: '0' },
 ]
 
+interface ParentOption {
+  label: string
+  value: string
+  ids: string[]
+  disabled?: boolean
+}
+
+const parentOptions = computed<ParentOption[]>(() => flattenParentOptions(parentRecords.value))
+const editableParentOptions = computed(() => {
+  const currentId = editing.id ? String(editing.id) : ''
+  if (!currentId) return parentOptions.value
+  return parentOptions.value.map(option => ({
+    ...option,
+    disabled: option.ids.includes(currentId),
+  }))
+})
+
 async function fetchData() {
   loading.value = true
   error.value = ''
@@ -127,9 +164,21 @@ async function fetchData() {
     loading.value = false
   }
 }
+async function fetchParentOptions() {
+  parentLoading.value = true
+  try {
+    const page = await adminApi.listClassifies({ pageNum: 1, pageSize: 1000, bizType: query.bizType || '' })
+    parentRecords.value = page.list
+  } catch {
+    parentRecords.value = []
+  } finally {
+    parentLoading.value = false
+  }
+}
 function reload() {
   pageNum.value = 1
   fetchData()
+  fetchParentOptions()
 }
 function resetFilters() {
   Object.assign(query, { name: '', status: '', bizType: '' })
@@ -151,11 +200,13 @@ function resetEditor() {
 const isTopLevelEdit = computed(
   () => !!editing.id && (!editing.pid || editing.pid === '0'),
 )
-function openCreate() {
+async function openCreate() {
+  if (!parentRecords.value.length) await fetchParentOptions()
   resetEditor()
   editorVisible.value = true
 }
-function openEdit(row: AdminClassify) {
+async function openEdit(row: AdminClassify) {
+  if (!parentRecords.value.length) await fetchParentOptions()
   Object.assign(editing, {
     id: row.id,
     name: row.name || '',
@@ -187,7 +238,44 @@ async function saveClassify() {
     saving.value = false
   }
 }
-onMounted(fetchData)
+function normalizePid(pid?: string): string {
+  if (!pid || pid === '0') return '0'
+  const ids = splitPid(pid)
+  return ids.length ? ids.join('/') : '0'
+}
+function splitPid(pid?: string): string[] {
+  if (!pid || pid === '0') return []
+  return String(pid).split(/[\/,]/).filter(id => id && id !== '0')
+}
+function buildNodePid(node: AdminClassify, parents: string[]): string {
+  return [...parents, String(node.id)].join('/')
+}
+function flattenParentOptions(
+  nodes: AdminClassify[],
+  parentIds: string[] = [],
+  parentNames: string[] = [],
+): ParentOption[] {
+  return nodes.flatMap((node) => {
+    const name = node.name || node.code || String(node.id)
+    const ids = [...parentIds, String(node.id)]
+    const names = [...parentNames, name]
+    const option: ParentOption = {
+      label: names.join(' / '),
+      value: buildNodePid(node, parentIds),
+      ids,
+    }
+    return [option, ...flattenParentOptions(node.children || [], ids, names)]
+  })
+}
+function parentPathLabel(pid?: string): string {
+  const normalized = normalizePid(pid)
+  if (normalized === '0') return '顶级分类'
+  return parentOptions.value.find(option => option.value === normalized)?.label || normalized
+}
+onMounted(() => {
+  fetchData()
+  fetchParentOptions()
+})
 useHead({ title: '分类管理 - 工作台' })
 </script>
 
@@ -197,6 +285,7 @@ useHead({ title: '分类管理 - 工作台' })
 .admin-page__header h1 { margin: 0 0 5px; font-size: 22px; }
 .admin-page__header p { margin: 0; color: #606266; font-size: 13px; }
 .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.parent-select { width: 100%; }
 @media (max-width: 640px) {
   .admin-page__header { align-items: stretch; flex-direction: column; }
   .editor-grid { grid-template-columns: 1fr; }

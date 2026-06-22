@@ -96,6 +96,14 @@
           <el-date-picker v-model="form.planDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期，以日期中的日为准" />
         </el-form-item>
 
+        <el-form-item v-if="form.type === 'MONTH'" label="月计划规则">
+          <div class="month-options">
+            <el-checkbox v-model="form.weekendDelay">遇周末顺延</el-checkbox>
+            <el-checkbox v-model="form.workdayDelay">遇工作日顺延</el-checkbox>
+            <el-segmented v-model="form.monthDayPolicy" :options="monthDayPolicyOptions" />
+          </div>
+        </el-form-item>
+
         <el-form-item v-if="form.type === 'YEAR'" label="每年执行日" prop="planDate">
           <div class="year-date-row">
             <el-date-picker v-model="form.planDate" type="date" value-format="YYYY-MM-DD" placeholder="选择月和日" />
@@ -144,7 +152,7 @@
 
 <script setup lang="ts">
 import type { FormRules } from 'element-plus'
-import type { PlanItem, PlanSaveRequest, PlanType } from '~/services/plan-api'
+import type { MonthDayPolicy, PlanItem, PlanSaveRequest, PlanType } from '~/services/plan-api'
 import { planTypeLabel } from '~/services/plan-api'
 
 definePageMeta({
@@ -180,6 +188,10 @@ const weekdayOptions = [
   { label: '周六', value: '7' },
 ]
 const weekendValues = ['1', '7']
+const monthDayPolicyOptions: Array<{ label: string; value: MonthDayPolicy }> = [
+  { label: '当月无该日跳过', value: 'SKIP' },
+  { label: '往前推到月底', value: 'LAST_DAY' },
+]
 
 const query = reactive({
   title: '',
@@ -195,6 +207,9 @@ const form = reactive({
   workdays: [] as string[],
   skipWeekend: false,
   skipHoliday: false,
+  weekendDelay: false,
+  workdayDelay: false,
+  monthDayPolicy: 'SKIP' as MonthDayPolicy,
   lunarCalendar: false,
   startTime: '',
   endTime: '',
@@ -273,9 +288,22 @@ function scheduleLabel(row: PlanItem) {
   }
   const date = new Date(row.planDate || '')
   if (Number.isNaN(date.getTime())) return '-'
-  if (row.type === 'MONTH') return `每月 ${date.getDate()} 日`
+  if (row.type === 'MONTH') {
+    const labels = monthRuleLabels(row)
+    const schedule = `每月 ${date.getDate()} 日`
+    return labels.length ? `${schedule}（${labels.join('、')}）` : schedule
+  }
   const calendar = row.lunarCalendar ? '农历' : '公历'
   return `${calendar} ${date.getMonth() + 1} 月 ${date.getDate()} 日`
+}
+
+function monthRuleLabels(row: PlanItem) {
+  const labels: string[] = []
+  if (row.weekendDelay) labels.push('遇周末顺延')
+  if (row.workdayDelay) labels.push('遇工作日顺延')
+  if (row.monthDayPolicy === 'LAST_DAY') labels.push('无该日往前推到月底')
+  else labels.push('无该日跳过')
+  return labels
 }
 
 function weeklySkipLabels(row: PlanItem) {
@@ -299,6 +327,9 @@ function resetSchedule() {
   form.workdays = []
   form.skipWeekend = false
   form.skipHoliday = false
+  form.weekendDelay = false
+  form.workdayDelay = false
+  form.monthDayPolicy = 'SKIP'
   form.lunarCalendar = false
   formRef.value?.clearValidate?.(['planDate', 'workdays'])
 }
@@ -313,6 +344,9 @@ function resetForm() {
   form.workdays = []
   form.skipWeekend = false
   form.skipHoliday = false
+  form.weekendDelay = false
+  form.workdayDelay = false
+  form.monthDayPolicy = 'SKIP'
   form.lunarCalendar = false
   form.startTime = ''
   form.endTime = ''
@@ -358,6 +392,9 @@ function openEdit(row: PlanItem) {
   form.workdays = row.workdays ? row.workdays.split(',') : []
   form.skipWeekend = Boolean(row.skipWeekend)
   form.skipHoliday = Boolean(row.skipHoliday)
+  form.weekendDelay = Boolean(row.weekendDelay)
+  form.workdayDelay = Boolean(row.workdayDelay)
+  form.monthDayPolicy = row.monthDayPolicy || 'SKIP'
   applySkipWeekend()
   form.lunarCalendar = Boolean(row.lunarCalendar)
   form.startTime = timePart(row.planStartTime)
@@ -379,6 +416,9 @@ async function savePlan() {
     workdays: form.type === 'WEEK' ? [...form.workdays].sort().join(',') : null,
     skipWeekend: form.type === 'WEEK' && form.skipWeekend,
     skipHoliday: form.type === 'WEEK' && form.skipHoliday,
+    weekendDelay: form.type === 'MONTH' && form.weekendDelay,
+    workdayDelay: form.type === 'MONTH' && form.workdayDelay,
+    monthDayPolicy: form.type === 'MONTH' ? form.monthDayPolicy : null,
     planStartTime: toIso(startDate, form.startTime),
     planEndTime: toIso(endDate, form.endTime),
   }
@@ -421,6 +461,12 @@ watch(pageNum, fetchData)
 watch(() => form.skipWeekend, () => {
   applySkipWeekend()
   formRef.value?.validateField?.('workdays')
+})
+watch(() => form.weekendDelay, (value) => {
+  if (value) form.workdayDelay = false
+})
+watch(() => form.workdayDelay, (value) => {
+  if (value) form.weekendDelay = false
 })
 onMounted(fetchData)
 
@@ -466,6 +512,7 @@ useHead({ title: '周期计划 - ch-wiki' })
 }
 .time-range,
 .skip-options,
+.month-options,
 .year-date-row {
   display: flex;
   align-items: center;
@@ -488,6 +535,7 @@ useHead({ title: '周期计划 - ch-wiki' })
   }
   .time-range,
   .skip-options,
+  .month-options,
   .year-date-row {
     align-items: flex-start;
     flex-direction: column;

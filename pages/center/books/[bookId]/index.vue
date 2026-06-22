@@ -38,7 +38,7 @@
       <section class="chapter-section">
         <header class="chapter-section__head">
           <h2>章节目录</h2>
-          <span class="chapter-section__sub">点击章节查看详情，可继续进入编辑</span>
+          <span class="chapter-section__sub">点击章节进入编辑，目录节点仅展示结构</span>
         </header>
         <div class="chapter-section__body">
           <BooksBookChapterTree

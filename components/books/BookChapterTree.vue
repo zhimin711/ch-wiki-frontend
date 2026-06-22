@@ -7,25 +7,25 @@
           class="chapter-row chapter-row--button"
           :class="{
           'chapter-row--selected': item.id === selectedId,
-          'chapter-row--catalog': item.leaf === false || item.id === '-',
+          'chapter-row--catalog': isCatalog(item),
         }"
           @click="$emit('select', item)"
       >
         <span class="chapter-row__icon">
-          <el-icon><FolderOpened v-if="item.leaf === false || item.id === '-'" /><Document v-else /></el-icon>
+          <el-icon><FolderOpened v-if="isCatalog(item)" /><Document v-else /></el-icon>
         </span>
         <span class="chapter-row__title">{{ chapterTitle(item) }}</span>
         <el-tag
             size="small"
-            :type="item.leaf === false || item.id === '-' ? 'success' : 'info'"
+            :type="isCatalog(item) ? 'success' : 'info'"
             effect="plain"
             round
             class="chapter-row__tag"
         >
-          {{ item.leaf === false || item.id === '-' ? '目录' : contentTypeLabel(item.contentType) }}
+          {{ isCatalog(item) ? '目录' : contentTypeLabel(item.contentType) }}
         </el-tag>
         <el-tag
-            v-if="item.id !== '-' && item.leaf !== false && item.status !== 1"
+            v-if="!isCatalog(item) && item.status !== 1"
             size="small"
             type="warning"
             effect="plain"
@@ -36,7 +36,7 @@
         </el-tag>
       </button>
       <NuxtLink
-          v-else-if="item.id !== '-' && item.leaf !== false"
+          v-else-if="!readonly && !isCatalog(item)"
           class="chapter-row chapter-row--link"
           :to="`/center/books/${bookId}/chapter/${item.id}`"
       >
@@ -56,11 +56,15 @@
       </NuxtLink>
       <div
           v-else
-          class="chapter-row chapter-row--catalog chapter-row--static"
+          class="chapter-row chapter-row--static"
+          :class="{ 'chapter-row--catalog': isCatalog(item) }"
       >
-        <span class="chapter-row__icon"><el-icon><FolderOpened /></el-icon></span>
-        <strong class="chapter-row__title">{{ chapterTitle(item) }}</strong>
-        <span class="chapter-row__suffix">{{ item.children?.length || 0 }} 章</span>
+        <span class="chapter-row__icon">
+          <el-icon><FolderOpened v-if="isCatalog(item)" /><Document v-else /></el-icon>
+        </span>
+        <strong v-if="isCatalog(item)" class="chapter-row__title">{{ chapterTitle(item) }}</strong>
+        <span v-else class="chapter-row__title">{{ chapterTitle(item) }}</span>
+        <span v-if="isCatalog(item)" class="chapter-row__suffix">{{ item.children?.length || 0 }} 章</span>
       </div>
 
       <BooksBookChapterTree
@@ -69,6 +73,7 @@
           :chapters="item.children"
           :book-id="bookId"
           :selectable="selectable"
+          :readonly="readonly"
           :selected-id="selectedId"
           :depth="(depth || 0) + 1"
           @select="$emit('select', $event)"
@@ -85,6 +90,7 @@ withDefaults(defineProps<{
   chapters: UserBookChapter[]
   bookId: number
   selectable?: boolean
+  readonly?: boolean
   selectedId?: string
   depth?: number
 }>(), {
@@ -94,6 +100,10 @@ withDefaults(defineProps<{
 defineEmits<{
   (e: 'select', chapter: UserBookChapter): void
 }>()
+
+function isCatalog(item: UserBookChapter) {
+  return item.leaf === false || item.id === '-' || !item.id || Boolean(item.children?.length)
+}
 
 function chapterTitle(item: UserBookChapter) {
   return [item.number, item.name].filter(Boolean).join(' ') || '未命名'

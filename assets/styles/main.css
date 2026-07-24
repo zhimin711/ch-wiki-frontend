@@ -50,3 +50,23 @@ img {
   max-width: 100%;
   height: auto;
 }
+
+/* =========================================================
+   Element Plus 浮层 z-index 提升
+   ----------------------------------------------------
+   默认情况下 Element Plus 的 popup manager 会按打开顺序累加 z-index,
+   但 el-dialog 打开后再调用 ElMessage 时,ElMessage 的 zIndex 经常
+   落在 el-dialog 的 overlay 之下,导致提示被对话框背景遮住。
+   强制把全局浮层类提到最高层,保证所有 ElMessage / ElMessageBox /
+   ElNotification / ElPopper 永远显示在 dialog 之上。
+   ========================================================= */
+.el-message,
+.el-message-box,
+.el-notification,
+.el-popper,
+.el-select-dropdown,
+.el-dropdown-menu,
+.el-cascader__dropdown,
+.el-tooltip__popper {
+  z-index: 9999 !important;
+}

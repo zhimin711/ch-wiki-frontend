@@ -174,6 +174,8 @@ export interface PublicBookDetailDTO {
   chapters: PublicBookChapterDTO[]
 }
 
+export type PublicBookContentType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'MIX'
+
 export interface PublicBookChapterDTO {
   id: string
   bookId: number
@@ -182,6 +184,7 @@ export interface PublicBookChapterDTO {
   pre: string
   next: string
   content: string
+  contentType?: PublicBookContentType
   children: PublicBookChapterDTO[]
 }
 

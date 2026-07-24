@@ -2,7 +2,7 @@ import type { ApiResult } from './api-client'
 import { extractData, useApiClient } from './api-client'
 import type { PageResponse } from './article-api'
 
-export type PlanType = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
+export type PlanType = 'DAY' | 'INTERVAL' | 'WEEK' | 'MONTH' | 'YEAR'
 export type MonthDayPolicy = 'SKIP' | 'LAST_DAY'
 
 export interface PlanItem {
@@ -12,6 +12,7 @@ export interface PlanItem {
   detail?: string
   lunarCalendar?: boolean
   planDate?: string | null
+  intervalDays?: number | null
   workdays?: string | null
   skipWeekend?: boolean
   skipHoliday?: boolean
@@ -36,6 +37,7 @@ export interface PlanSaveRequest {
   detail?: string
   lunarCalendar: boolean
   planDate?: string | null
+  intervalDays?: number | null
   workdays?: string | null
   skipWeekend: boolean
   skipHoliday: boolean
@@ -56,6 +58,7 @@ function toPage<T>(data: PageResponse<T> | null): { list: T[]; total: number } {
 export function planTypeLabel(type: PlanType) {
   return {
     DAY: '每天',
+    INTERVAL: '每 N 天',
     WEEK: '每周',
     MONTH: '每月',
     YEAR: '每年',

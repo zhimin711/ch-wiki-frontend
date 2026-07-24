@@ -92,6 +92,17 @@
           </div>
         </el-form-item>
 
+        <el-form-item v-if="form.type === 'INTERVAL'" label="间隔天数" prop="intervalDays">
+          <div class="interval-row">
+            <el-input-number v-model="form.intervalDays" :min="1" :max="3650" :precision="0" />
+            <span>天</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item v-if="form.type === 'INTERVAL'" label="顺延规则">
+          <el-checkbox v-model="form.workdayDelay">遇工作日顺延</el-checkbox>
+        </el-form-item>
+
         <el-form-item v-if="form.type === 'MONTH'" label="每月执行日" prop="planDate">
           <el-date-picker v-model="form.planDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期，以日期中的日为准" />
         </el-form-item>
@@ -173,6 +184,7 @@ const editingId = ref<number | null>(null)
 
 const typeOptions: Array<{ label: string; value: PlanType }> = [
   { label: '每天', value: 'DAY' },
+  { label: '每 N 天', value: 'INTERVAL' },
   { label: '每周', value: 'WEEK' },
   { label: '每月', value: 'MONTH' },
   { label: '每年', value: 'YEAR' },
@@ -204,6 +216,7 @@ const form = reactive({
   detail: '',
   activeRange: [] as string[],
   planDate: '',
+  intervalDays: 1,
   workdays: [] as string[],
   skipWeekend: false,
   skipHoliday: false,
@@ -231,6 +244,16 @@ const rules: FormRules = {
     validator: (_rule, _value, callback) => {
       if ((form.type === 'MONTH' || form.type === 'YEAR') && !form.planDate) {
         callback(new Error('请选择执行日期'))
+      } else {
+        callback()
+      }
+    },
+    trigger: 'change',
+  }],
+  intervalDays: [{
+    validator: (_rule, _value, callback) => {
+      if (form.type === 'INTERVAL' && (!form.intervalDays || form.intervalDays < 1 || form.intervalDays > 3650)) {
+        callback(new Error('请输入1到3650之间的间隔天数'))
       } else {
         callback()
       }
@@ -277,6 +300,11 @@ function timeRangeLabel(row: PlanItem) {
 
 function scheduleLabel(row: PlanItem) {
   if (row.type === 'DAY') return '每天'
+  if (row.type === 'INTERVAL') {
+    const labels = intervalRuleLabels(row)
+    const schedule = `每 ${row.intervalDays || '-'} 天`
+    return labels.length ? `${schedule}（${labels.join('、')}）` : schedule
+  }
   if (row.type === 'WEEK') {
     const labels = (row.workdays || '')
       .split(',')
@@ -295,6 +323,12 @@ function scheduleLabel(row: PlanItem) {
   }
   const calendar = row.lunarCalendar ? '农历' : '公历'
   return `${calendar} ${date.getMonth() + 1} 月 ${date.getDate()} 日`
+}
+
+function intervalRuleLabels(row: PlanItem) {
+  const labels: string[] = []
+  if (row.workdayDelay) labels.push('遇工作日顺延')
+  return labels
 }
 
 function monthRuleLabels(row: PlanItem) {
@@ -324,6 +358,7 @@ function applySkipWeekend() {
 
 function resetSchedule() {
   form.planDate = ''
+  form.intervalDays = 1
   form.workdays = []
   form.skipWeekend = false
   form.skipHoliday = false
@@ -331,7 +366,7 @@ function resetSchedule() {
   form.workdayDelay = false
   form.monthDayPolicy = 'SKIP'
   form.lunarCalendar = false
-  formRef.value?.clearValidate?.(['planDate', 'workdays'])
+  formRef.value?.clearValidate?.(['planDate', 'intervalDays', 'workdays'])
 }
 
 function resetForm() {
@@ -341,6 +376,7 @@ function resetForm() {
   form.detail = ''
   form.activeRange = []
   form.planDate = ''
+  form.intervalDays = 1
   form.workdays = []
   form.skipWeekend = false
   form.skipHoliday = false
@@ -389,6 +425,7 @@ function openEdit(row: PlanItem) {
   form.detail = row.detail || ''
   form.activeRange = [datePart(row.planStartTime), datePart(row.planEndTime)]
   form.planDate = datePart(row.planDate)
+  form.intervalDays = row.intervalDays || 1
   form.workdays = row.workdays ? row.workdays.split(',') : []
   form.skipWeekend = Boolean(row.skipWeekend)
   form.skipHoliday = Boolean(row.skipHoliday)
@@ -413,11 +450,12 @@ async function savePlan() {
     detail: form.detail,
     lunarCalendar: form.type === 'YEAR' && form.lunarCalendar,
     planDate: form.type === 'MONTH' || form.type === 'YEAR' ? toIso(form.planDate) : null,
+    intervalDays: form.type === 'INTERVAL' ? form.intervalDays : null,
     workdays: form.type === 'WEEK' ? [...form.workdays].sort().join(',') : null,
     skipWeekend: form.type === 'WEEK' && form.skipWeekend,
     skipHoliday: form.type === 'WEEK' && form.skipHoliday,
     weekendDelay: form.type === 'MONTH' && form.weekendDelay,
-    workdayDelay: form.type === 'MONTH' && form.workdayDelay,
+    workdayDelay: (form.type === 'MONTH' || form.type === 'INTERVAL') && form.workdayDelay,
     monthDayPolicy: form.type === 'MONTH' ? form.monthDayPolicy : null,
     planStartTime: toIso(startDate, form.startTime),
     planEndTime: toIso(endDate, form.endTime),
@@ -511,6 +549,7 @@ useHead({ title: '周期计划 - ch-wiki' })
   color: #909399;
 }
 .time-range,
+.interval-row,
 .skip-options,
 .month-options,
 .year-date-row {
@@ -534,6 +573,7 @@ useHead({ title: '周期计划 - ch-wiki' })
     grid-template-columns: 1fr;
   }
   .time-range,
+  .interval-row,
   .skip-options,
   .month-options,
   .year-date-row {

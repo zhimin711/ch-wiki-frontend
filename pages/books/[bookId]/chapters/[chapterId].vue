@@ -37,7 +37,27 @@
 
     <!-- 章节正文 -->
     <section class="chapter-body">
-      <div v-if="chapter.content" class="chapter-content" v-html="chapter.content" />
+      <div v-if="isImageChapter && imagePages.length" class="chapter-image-reader">
+        <figure
+          v-for="(page, index) in visibleImagePages"
+          :key="`${page.src}-${index}`"
+          class="chapter-image-page"
+        >
+          <img
+            :src="page.src"
+            :alt="page.alt || `第${index + 1}页`"
+            loading="lazy"
+            decoding="async"
+          >
+        </figure>
+        <div
+          v-if="hasMoreImages"
+          ref="imageLoadMoreRef"
+          class="chapter-image-sentinel"
+          aria-hidden="true"
+        />
+      </div>
+      <div v-else-if="chapter.content" class="chapter-content" v-html="chapter.content" />
       <el-empty v-else description="暂无内容" />
     </section>
 
@@ -152,11 +172,14 @@
 <script setup lang="ts">
 import { ArrowLeft, ArrowRight, Check, Setting } from '@element-plus/icons-vue'
 import type { PublicBookChapterDTO } from '~/services/public-api'
+import { normalizeBackendUrl } from '~/composables/useAvatar'
 
 const route = useRoute()
 const { getChapterContent } = usePublicApi()
 const { settings, styleVars, update, reset, options } = useReaderSettings()
 const settingsOpen = ref(false)
+const IMAGE_BATCH_SIZE = 8
+const IMAGE_LOAD_ROOT_MARGIN = '900px 0px'
 
 const bookId = computed(() => Number(route.params.bookId))
 const chapterId = computed(() => route.params.chapterId as string)
@@ -165,8 +188,109 @@ const { data: result } = await useAsyncData(
   () => getChapterContent(bookId.value, chapterId.value),
 )
 const chapter = computed<PublicBookChapterDTO | null>(() => result.value ?? null)
+const imageLoadMoreRef = ref<HTMLElement | null>(null)
+const visibleImageCount = ref(IMAGE_BATCH_SIZE)
+let imageObserver: IntersectionObserver | null = null
 
 useHead({ title: () => chapter.value ? `${chapter.value.number} ${chapter.value.name} - ch-wiki` : '章节 - ch-wiki' })
+
+interface ImagePage {
+  src: string
+  alt: string
+}
+
+const imagePages = computed<ImagePage[]>(() => extractImagePages(chapter.value?.content || ''))
+const isImageChapter = computed(() => {
+  if (!chapter.value?.content) return false
+  if (chapter.value.contentType === 'IMAGE') return true
+  return imagePages.value.length > 0 && imageOnlyContent(chapter.value.content)
+})
+const visibleImagePages = computed(() => imagePages.value.slice(0, visibleImageCount.value))
+const hasMoreImages = computed(() => visibleImageCount.value < imagePages.value.length)
+
+watch(
+  () => chapter.value?.content,
+  () => resetImageReader(),
+)
+
+watch(imageLoadMoreRef, () => observeImageSentinel())
+watch(hasMoreImages, () => observeImageSentinel())
+
+onMounted(() => observeImageSentinel())
+onBeforeUnmount(() => disconnectImageObserver())
+
+function resetImageReader() {
+  visibleImageCount.value = Math.min(IMAGE_BATCH_SIZE, imagePages.value.length || IMAGE_BATCH_SIZE)
+  nextTick(() => observeImageSentinel())
+}
+
+function loadMoreImages() {
+  if (!hasMoreImages.value) return
+  visibleImageCount.value = Math.min(
+    visibleImageCount.value + IMAGE_BATCH_SIZE,
+    imagePages.value.length,
+  )
+  nextTick(() => observeImageSentinel())
+}
+
+function observeImageSentinel() {
+  if (!import.meta.client) return
+  disconnectImageObserver()
+  if (!hasMoreImages.value || !imageLoadMoreRef.value) return
+  imageObserver = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      loadMoreImages()
+    }
+  }, { root: null, rootMargin: IMAGE_LOAD_ROOT_MARGIN })
+  imageObserver.observe(imageLoadMoreRef.value)
+}
+
+function disconnectImageObserver() {
+  if (!imageObserver) return
+  imageObserver.disconnect()
+  imageObserver = null
+}
+
+function extractImagePages(content: string): ImagePage[] {
+  const pages: ImagePage[] = []
+  for (const match of content.matchAll(/<img\b[^>]*>/gi)) {
+    const tag = match[0]
+    const src = normalizeBackendUrl(decodeHtmlAttribute(readHtmlAttribute(tag, 'src')))
+    if (!src) continue
+    pages.push({
+      src,
+      alt: decodeHtmlAttribute(readHtmlAttribute(tag, 'alt')),
+    })
+  }
+  return pages
+}
+
+function imageOnlyContent(content: string): boolean {
+  const withoutImages = content
+    .replace(/<img\b[^>]*>/gi, '')
+    .replace(/<\/?p\b[^>]*>/gi, '')
+    .replace(/<br\s*\/?>/gi, '')
+    .replace(/&nbsp;/gi, '')
+    .trim()
+  return withoutImages.length === 0
+}
+
+function readHtmlAttribute(tag: string, name: string): string {
+  const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i')
+  const match = tag.match(pattern)
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? ''
+}
+
+function decodeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
 </script>
 
 <style scoped>
@@ -265,6 +389,31 @@ useHead({ title: () => chapter.value ? `${chapter.value.number} ${chapter.value.
 }
 .chapter-content :deep(p:last-child) {
   margin-bottom: 0;
+}
+.chapter-image-reader {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.chapter-image-page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: min(78vh, 900px);
+  margin: 0;
+  background: rgba(0, 0, 0, 0.03);
+}
+.chapter-image-page img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.chapter-image-sentinel {
+  width: 100%;
+  height: 1px;
 }
 
 /* ============ 底部导航 ============ */

@@ -103,6 +103,10 @@
           <el-checkbox v-model="form.workdayDelay">遇工作日顺延</el-checkbox>
         </el-form-item>
 
+        <el-form-item v-if="form.type === 'DAY'" label="过期处理">
+          <el-checkbox v-model="form.autoCancelExpired">过了当天未开始自动取消</el-checkbox>
+        </el-form-item>
+
         <el-form-item v-if="form.type === 'MONTH'" label="每月执行日" prop="planDate">
           <el-date-picker v-model="form.planDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期，以日期中的日为准" />
         </el-form-item>
@@ -223,6 +227,7 @@ const form = reactive({
   weekendDelay: false,
   workdayDelay: false,
   monthDayPolicy: 'SKIP' as MonthDayPolicy,
+  autoCancelExpired: false,
   lunarCalendar: false,
   startTime: '',
   endTime: '',
@@ -299,7 +304,10 @@ function timeRangeLabel(row: PlanItem) {
 }
 
 function scheduleLabel(row: PlanItem) {
-  if (row.type === 'DAY') return '每天'
+  if (row.type === 'DAY') {
+    const labels = dailyRuleLabels(row)
+    return labels.length ? `每天（${labels.join('、')}）` : '每天'
+  }
   if (row.type === 'INTERVAL') {
     const labels = intervalRuleLabels(row)
     const schedule = `每 ${row.intervalDays || '-'} 天`
@@ -323,6 +331,12 @@ function scheduleLabel(row: PlanItem) {
   }
   const calendar = row.lunarCalendar ? '农历' : '公历'
   return `${calendar} ${date.getMonth() + 1} 月 ${date.getDate()} 日`
+}
+
+function dailyRuleLabels(row: PlanItem) {
+  const labels: string[] = []
+  if (row.autoCancelExpired) labels.push('过期未开始自动取消')
+  return labels
 }
 
 function intervalRuleLabels(row: PlanItem) {
@@ -365,6 +379,7 @@ function resetSchedule() {
   form.weekendDelay = false
   form.workdayDelay = false
   form.monthDayPolicy = 'SKIP'
+  form.autoCancelExpired = false
   form.lunarCalendar = false
   formRef.value?.clearValidate?.(['planDate', 'intervalDays', 'workdays'])
 }
@@ -383,6 +398,7 @@ function resetForm() {
   form.weekendDelay = false
   form.workdayDelay = false
   form.monthDayPolicy = 'SKIP'
+  form.autoCancelExpired = false
   form.lunarCalendar = false
   form.startTime = ''
   form.endTime = ''
@@ -432,6 +448,7 @@ function openEdit(row: PlanItem) {
   form.weekendDelay = Boolean(row.weekendDelay)
   form.workdayDelay = Boolean(row.workdayDelay)
   form.monthDayPolicy = row.monthDayPolicy || 'SKIP'
+  form.autoCancelExpired = Boolean(row.autoCancelExpired)
   applySkipWeekend()
   form.lunarCalendar = Boolean(row.lunarCalendar)
   form.startTime = timePart(row.planStartTime)
@@ -457,6 +474,7 @@ async function savePlan() {
     weekendDelay: form.type === 'MONTH' && form.weekendDelay,
     workdayDelay: (form.type === 'MONTH' || form.type === 'INTERVAL') && form.workdayDelay,
     monthDayPolicy: form.type === 'MONTH' ? form.monthDayPolicy : null,
+    autoCancelExpired: form.type === 'DAY' && form.autoCancelExpired,
     planStartTime: toIso(startDate, form.startTime),
     planEndTime: toIso(endDate, form.endTime),
   }

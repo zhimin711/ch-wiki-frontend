@@ -19,6 +19,7 @@ export interface PlanItem {
   weekendDelay?: boolean
   workdayDelay?: boolean
   monthDayPolicy?: MonthDayPolicy | null
+  autoCancelExpired?: boolean
   planStartTime: string
   planEndTime: string
   createAt?: string
@@ -44,6 +45,7 @@ export interface PlanSaveRequest {
   weekendDelay: boolean
   workdayDelay: boolean
   monthDayPolicy?: MonthDayPolicy | null
+  autoCancelExpired: boolean
   planStartTime: string
   planEndTime: string
 }

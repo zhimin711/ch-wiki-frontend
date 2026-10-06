@@ -84,6 +84,18 @@
       <span v-else class="nav-bottom-placeholder" />
     </nav>
 
+    <el-backtop
+      class="reader-backtop"
+      :class="{ 'is-dark': settings.background === 'dark' }"
+      :right="24"
+      :bottom="80"
+      :visibility-height="320"
+      title="回到顶部"
+      aria-label="回到顶部"
+    >
+      <el-icon><Top /></el-icon>
+    </el-backtop>
+
     <!-- 浮动阅读设置入口(右下角) -->
     <el-popover
       v-model:visible="settingsOpen"
@@ -170,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, Check, Setting } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Check, Setting, Top } from '@element-plus/icons-vue'
 import type { PublicBookChapterDTO } from '~/services/public-api'
 import { normalizeBackendUrl } from '~/composables/useAvatar'
 
@@ -483,6 +495,29 @@ function decodeHtmlAttribute(value: string): string {
 }
 
 /* ============ 浮动设置按钮 ============ */
+.reader-backtop {
+  width: 44px;
+  height: 44px;
+  color: var(--color-text-secondary);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  transition: color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.reader-backtop:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(64, 158, 255, 0.25);
+}
+.reader-backtop .el-icon {
+  font-size: 18px;
+}
+.reader-backtop.is-dark {
+  color: #cfd2d6;
+  background: #2a2d31;
+  border-color: #3a3d42;
+}
 .reader-settings-fab {
   position: fixed;
   right: 24px;

@@ -6,6 +6,14 @@
         <h1 class="page-title">藏书阁</h1>
         <p class="page-subtitle" v-if="total">共 {{ total }} 本书</p>
       </div>
+      <div class="type-filter">
+        <span class="filter-label">类型</span>
+        <el-segmented
+          v-model="bookType"
+          :options="bookTypeOptions"
+          @change="changeBookType"
+        />
+      </div>
     </div>
 
     <!-- 书籍网格（每行 3-4 本） -->
@@ -71,16 +79,31 @@ const pageNum = ref(1)
 const pageSize = 12
 const total = ref(0)
 const loading = ref(false)
+const bookType = ref('')
+const bookTypeOptions = [
+  { label: '全部', value: '' },
+  { label: '文字', value: '1' },
+  { label: '图片', value: '2' },
+]
 
 async function fetchBooks() {
   loading.value = true
   try {
-    const result = await getBooks({ pageNum: pageNum.value, pageSize, type: '1' })
+    const result = await getBooks({
+      pageNum: pageNum.value,
+      pageSize,
+      type: bookType.value || undefined,
+    })
     books.value = result.list || []
     total.value = result.total || 0
   } finally {
     loading.value = false
   }
+}
+
+function changeBookType() {
+  pageNum.value = 1
+  fetchBooks()
 }
 
 function formatDate(ts: number | null | undefined) {
@@ -140,6 +163,19 @@ useHead({ title: '藏书阁 - ch-wiki' })
   width: 5px;
   border-radius: 3px;
   background: linear-gradient(180deg, #ff9a44, #ff6a6a);
+}
+.type-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.filter-label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.type-filter :deep(.el-segmented__item) {
+  min-width: 64px;
 }
 .page-title {
   font-size: 26px;
@@ -303,5 +339,22 @@ useHead({ title: '藏书阁 - ch-wiki' })
   display: flex;
   justify-content: center;
   margin-top: 32px;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .type-filter {
+    justify-content: space-between;
+  }
+  .type-filter :deep(.el-segmented) {
+    flex: 1;
+  }
+  .type-filter :deep(.el-segmented__item) {
+    min-width: 0;
+  }
 }
 </style>

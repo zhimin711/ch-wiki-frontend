@@ -33,8 +33,9 @@ cp .env.example .env
 
 | 变量 | 用途 | 默认值 |
 |------|------|--------|
-| `NUXT_PUBLIC_API_BASE_URL` | Nuxt SSR 服务端访问后端的地址 | `http://127.0.0.1:7003` |
-| `NUXT_PUBLIC_UPLOAD_BASE_URL` | 上传资源基础地址 | `http://127.0.0.1:7003` |
+| `NUXT_API_PROXY_TARGET` | Nuxt 服务端代理和 SSR 访问后端的地址 | `http://127.0.0.1:7003` |
+| `NUXT_PUBLIC_API_BASE_URL` | 浏览器直接跳转后端时使用；同域部署可留空 | 空 |
+| `NUXT_PUBLIC_UPLOAD_BASE_URL` | 浏览器直接访问上传资源时使用；同域部署可留空 | 空 |
 | `NUXT_PUBLIC_OAUTH2_LOGIN_URLS` | OAuth2 登录地址 | `{"gitee":"/oauth2/authorization/gitee"}` |
 | `NUXT_PUBLIC_SITE_NAME` | 站点名称 | `ch-wiki` |
 
@@ -57,17 +58,30 @@ frontend/
 
 ## API 代理
 
-开发时通过 `nuxt.config.ts` 中的 `routeRules` 转发：
+Nuxt 服务端通过 `server/middleware/backend-proxy.ts` 转发：
 
 | 路径 | 目标 |
 |------|------|
-| `/api/**` | `http://127.0.0.1:7003/api/**` |
-| `/upload/**` | `http://127.0.0.1:7003/upload/**` |
-| `/resource/**` | `http://127.0.0.1:7003/resource/**` |
-| `/oauth2/**` | `http://127.0.0.1:7003/oauth2/**` |
-| `/login/oauth2/**` | `http://127.0.0.1:7003/login/oauth2/**` |
+| `/api/**` | `${NUXT_API_PROXY_TARGET}/api/**` |
+| `/media/**` | `${NUXT_API_PROXY_TARGET}/media/**` |
+| `/upload/**` | `${NUXT_API_PROXY_TARGET}/upload/**` |
+| `/resource/**` | `${NUXT_API_PROXY_TARGET}/resource/**` |
+| `/oauth2/**` | `${NUXT_API_PROXY_TARGET}/oauth2/**` |
+| `/login/oauth2/**` | `${NUXT_API_PROXY_TARGET}/login/oauth2/**` |
 
-浏览器端 API 使用相对路径并经过上述代理；SSR 请求使用 `NUXT_PUBLIC_API_BASE_URL` 直连后端。容器部署时不要把该变量写成容器自身的 `127.0.0.1`，除非后端与 Nuxt 确实运行在同一网络命名空间。
+浏览器端 API 使用相对路径并经过上述代理；SSR 请求同样使用 `NUXT_API_PROXY_TARGET` 直连后端。该变量只在 Nuxt 服务端可见。
+
+Linux Docker 中，如果后端映射在宿主机 `7003` 端口，可这样启动前端：
+
+```bash
+docker run -d --name ch-wiki-frontend \
+  -p 3000:3000 \
+  --add-host=host.docker.internal:host-gateway \
+  -e NUXT_API_PROXY_TARGET=http://host.docker.internal:7003 \
+  ch-wiki-frontend:latest
+```
+
+如果前后端容器位于同一个 Docker 网络，优先使用后端服务名，例如 `http://wiki:7003`。
 
 生产环境建议由 Nginx 使用同域分流，页面请求进入 Nuxt，API、上传、下载和 OAuth2 请求进入 Spring Boot。
 

@@ -31,23 +31,18 @@ export default defineNuxtConfig({
   ],
 
   runtimeConfig: {
-    // 服务端私有（不暴露到前端）
+    // Nuxt 服务端访问后端的地址。容器部署时应设置为 Docker 网络内可访问的地址。
+    apiProxyTarget: process.env.NUXT_API_PROXY_TARGET || 'http://127.0.0.1:7003',
     // Public 暴露到前端
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:7003',
-      uploadBaseUrl: process.env.NUXT_PUBLIC_UPLOAD_BASE_URL || 'http://127.0.0.1:7003',
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
+      uploadBaseUrl: process.env.NUXT_PUBLIC_UPLOAD_BASE_URL || '',
       oauth2LoginUrls: process.env.NUXT_PUBLIC_OAUTH2_LOGIN_URLS || '{"gitee":"/oauth2/authorization/gitee","github":"/oauth2/authorization/github"}',
       siteName: process.env.NUXT_PUBLIC_SITE_NAME || '朝华',
     },
   },
 
-  // 本地开发代理：API、上传、OAuth2 请求转发到后端
   routeRules: {
-    '/api/**': { proxy: { to: 'http://127.0.0.1:7003/api/**' } },
-    '/upload/**': { proxy: { to: 'http://127.0.0.1:7003/upload/**' } },
-    '/resource/**': { proxy: { to: 'http://127.0.0.1:7003/resource/**' } },
-    '/oauth2/**': { proxy: { to: 'http://127.0.0.1:7003/oauth2/**' } },
-    '/login/oauth2/**': { proxy: { to: 'http://127.0.0.1:7003/login/oauth2/**' } },
     // 登录态只存于浏览器 localStorage，私有页面使用 CSR 避免服务端
     // 先渲染受保护内容、客户端再跳登录所产生的 hydration mismatch。
     '/center/**': { ssr: false },

@@ -70,8 +70,8 @@ export function useApiClient(): AxiosInstance {
 
   const config = useRuntimeConfig()
 
-  // SSR 用完整 URL，客户端用相对路径走 routeRules 代理
-  const baseURL = import.meta.server ? config.public.apiBaseUrl : ''
+  // SSR 直接访问后端；浏览器使用相对路径，经 Nuxt 服务端代理转发。
+  const baseURL = import.meta.server ? config.apiProxyTarget : ''
 
   _apiClient = axios.create({
     baseURL,

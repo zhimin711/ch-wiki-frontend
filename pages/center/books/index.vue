@@ -11,8 +11,8 @@
     <div class="filter-bar">
       <el-input v-model="query.title" placeholder="书名或标题" clearable @keyup.enter="reload" />
       <el-select v-model="query.type" clearable placeholder="类型">
-        <el-option label="文字类型" value="TEXT" />
-        <el-option label="图画类型" value="IMAGE" />
+        <el-option label="文字类型" value="1" />
+        <el-option label="图画类型" value="2" />
       </el-select>
       <el-select v-model="query.status" clearable placeholder="状态">
         <el-option label="新书" value="0" />

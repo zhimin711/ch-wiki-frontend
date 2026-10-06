@@ -122,7 +122,7 @@ const form = reactive<UserBookSaveRequest>({
   name: '',
   author: '',
   title: '',
-  type: 'TEXT',
+  type: '1',
   classify: '',
   image: '',
   srcType: 0,
@@ -135,8 +135,8 @@ const form = reactive<UserBookSaveRequest>({
 })
 const classifyPath = ref<string[]>([])
 const bookTypeOptions = [
-  { label: '文字类型', value: 'TEXT' },
-  { label: '图画类型', value: 'IMAGE' },
+  { label: '文字类型', value: '1' },
+  { label: '图画类型', value: '2' },
 ]
 const classifyProps = {
   checkStrictly: true,
@@ -178,7 +178,7 @@ function applyValue(value?: Partial<UserBookSaveRequest> | null) {
     name: value?.name || '',
     author: value?.author || '',
     title: value?.title || '',
-    type: normalizeBookType(value?.type) || 'TEXT',
+    type: normalizeBookType(value?.type) || '1',
     classify: value?.classify || '',
     image: value?.image || '',
     srcType: value?.srcType ?? 0,
@@ -272,7 +272,7 @@ async function submit() {
   if (!valid) return
   emit('submit', {
     ...form,
-    type: normalizeBookType(form.type) || 'TEXT',
+    type: normalizeBookType(form.type) || '1',
     classify: selectedClassifyValue(),
     srcUrl: requiresSourceUrl.value ? form.srcUrl : '',
   })

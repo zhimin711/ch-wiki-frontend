@@ -4,7 +4,7 @@ import type { PageResponse } from './article-api'
 import type { APIClassifyDTO } from './public-api'
 
 export type BookContentType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'MIX'
-export type UserBookType = 'TEXT' | 'IMAGE'
+export type UserBookType = '1' | '2'
 export type BookChapterStatus = 0 | 1
 
 export interface UserBookChapter {
@@ -106,8 +106,8 @@ export function bookStatusLabel(status?: string) {
 }
 
 export function bookTypeLabel(type?: string) {
-  if (normalizeBookType(type) === 'TEXT') return '文字类型'
-  if (normalizeBookType(type) === 'IMAGE') return '图画类型'
+  if (normalizeBookType(type) === '1') return '文字类型'
+  if (normalizeBookType(type) === '2') return '图画类型'
   return '未知'
 }
 
@@ -117,8 +117,8 @@ export function bookChapterStatusLabel(status?: number) {
 
 export function normalizeBookType(type?: string): UserBookType | '' {
   const value = `${type || ''}`.trim().toUpperCase()
-  if (value === 'TEXT' || value === '1' || value === '0') return 'TEXT'
-  if (value === 'IMAGE' || value === '2' || value === '3') return 'IMAGE'
+  if (value === 'TEXT' || value === '1' || value === '0') return '1'
+  if (value === 'IMAGE' || value === '2' || value === '3') return '2'
   return ''
 }
 

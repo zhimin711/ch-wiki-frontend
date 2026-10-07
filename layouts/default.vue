@@ -21,4 +21,10 @@
   margin: 0 auto;
   padding: 20px;
 }
+
+@media (max-width: 768px) {
+  .app-main {
+    padding: 12px;
+  }
+}
 </style>

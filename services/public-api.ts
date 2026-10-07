@@ -280,6 +280,9 @@ export function toSafeFileLink(resource: Pick<PublicResourceDetailDTO, 'title' |
 
 export function usePublicApi() {
   const client = useApiClient()
+  const authenticatedRequest = import.meta.server
+    ? { headers: useRequestHeaders(['cookie']) }
+    : undefined
 
   return {
     /** 获取首页聚合数据 */
@@ -412,7 +415,10 @@ export function usePublicApi() {
     /** 获取书籍详情和章节目录 */
     async getBookChapters(id: number) {
       return safeData(async () => {
-        const { data } = await client.get<ApiResult<PublicBookDetailDTO>>(`/api/public/books/${id}/chapters`)
+        const { data } = await client.get<ApiResult<PublicBookDetailDTO>>(
+          `/api/public/books/${id}/chapters`,
+          authenticatedRequest,
+        )
         return data
       })
     },
@@ -420,7 +426,10 @@ export function usePublicApi() {
     /** 获取章节正文 */
     async getChapterContent(bookId: number, chapterId: string) {
       return safeData(async () => {
-        const { data } = await client.get<ApiResult<PublicBookChapterDTO>>(`/api/public/books/${bookId}/chapters/${chapterId}`)
+        const { data } = await client.get<ApiResult<PublicBookChapterDTO>>(
+          `/api/public/books/${bookId}/chapters/${chapterId}`,
+          authenticatedRequest,
+        )
         return data
       })
     },

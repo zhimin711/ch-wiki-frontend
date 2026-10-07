@@ -142,4 +142,40 @@ function onUserMenuCommand(command: string) {
   font-size: 12px;
   transition: transform 0.2s;
 }
+
+@media (max-width: 768px) {
+  .header-inner {
+    height: auto;
+    min-height: 56px;
+    padding: 10px 12px 8px;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-size: 18px;
+  }
+  .header-actions {
+    margin-left: auto;
+  }
+  .user-trigger__name {
+    max-width: 120px;
+  }
+  .nav-links {
+    order: 3;
+    flex: 0 0 100%;
+    gap: 18px;
+    min-width: 0;
+    padding: 2px 0 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-links a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
 </style>

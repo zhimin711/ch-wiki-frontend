@@ -9,6 +9,16 @@ interface AuthState {
 
 const AUTH_STORAGE_KEYS = ['auth_token', 'auth_username', 'auth_nickname', 'auth_avatar']
 const INVALID_STORAGE_VALUES = new Set(['', 'null', 'undefined'])
+const AUTH_COOKIE_NAME = 'WIKI_TOKEN'
+
+function syncAuthCookie(token: string | null) {
+  if (!import.meta.client) return
+  if (token) {
+    document.cookie = `${AUTH_COOKIE_NAME}=${token}; Path=/; SameSite=Lax`
+    return
+  }
+  document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`
+}
 
 function readStoredValue(key: string): string | null {
   const value = localStorage.getItem(key)
@@ -64,6 +74,7 @@ export const useAuthStore = defineStore('auth', {
       this.avatar = null
       if (import.meta.client) {
         clearStoredAuth()
+        syncAuthCookie(null)
       }
     },
 
@@ -81,6 +92,7 @@ export const useAuthStore = defineStore('auth', {
       this.username = username
       this.nickname = readStoredValue('auth_nickname') || username
       this.avatar = readStoredValue('auth_avatar')
+      syncAuthCookie(token)
       return true
     },
   },

@@ -38,6 +38,8 @@ export interface UserBook {
   srcUrl?: string
   latestChapter?: string
   latestChapterAt?: string
+  createAt?: string
+  updateAt?: string
   latestChapterUrl?: string
   summary?: string
   description?: string
@@ -53,6 +55,8 @@ export interface UserBookQuery {
   title?: string
   type?: string
   status?: string
+  released?: boolean
+  sort?: 'activity' | 'created' | 'name'
 }
 
 export interface UserBookSaveRequest {

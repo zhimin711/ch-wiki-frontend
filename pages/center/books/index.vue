@@ -20,6 +20,11 @@
         <el-option label="完结" value="2" />
         <el-option label="暂无内容" value="4" />
       </el-select>
+      <el-select v-model="query.sort" placeholder="排序" @change="reload">
+        <el-option label="最近活动" value="activity" />
+        <el-option label="最新创建" value="created" />
+        <el-option label="书名" value="name" />
+      </el-select>
       <el-button type="primary" @click="reload">查询</el-button>
     </div>
 
@@ -49,6 +54,9 @@
       <el-table-column label="发布" width="90">
         <template #default="{ row }">{{ row.released ? '公开' : '私有' }}</template>
       </el-table-column>
+      <el-table-column label="最近活动" width="150">
+        <template #default="{ row }">{{ formatActivityTime(row as UserBook) }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="190" fixed="right">
         <template #default="{ row }">
           <div class="table-actions">
@@ -60,7 +68,12 @@
       </el-table-column>
     </el-table>
 
-    <CommonPagination v-model="pageNum" :total="total" :page-size="pageSize" />
+    <CommonPagination
+      v-model="pageNum"
+      v-model:page-size="pageSize"
+      :total="total"
+      :page-sizes="[10, 20, 50, 100]"
+    />
 
     <el-dialog v-model="createVisible" title="新建书籍" width="min(680px, 94vw)">
       <BooksBookMetaForm
@@ -89,8 +102,13 @@ const records = ref<UserBook[]>([])
 const bookClassifies = ref<APIClassifyDTO[]>([])
 const total = ref(0)
 const pageNum = ref(1)
-const pageSize = 10
-const query = reactive({ title: '', type: '', status: '' })
+const pageSize = ref(10)
+const query = reactive({
+  title: '',
+  type: '',
+  status: '',
+  sort: 'activity' as 'activity' | 'created' | 'name',
+})
 
 const { resolveUrls, getDisplayUrl } = usePrivateMediaUrlMap()
 
@@ -112,7 +130,7 @@ async function loadBookClassifies() {
 async function fetchData() {
   loading.value = true
   try {
-    const page = await api.getBooks({ ...query, pageNum: pageNum.value, pageSize })
+    const page = await api.getBooks({ ...query, pageNum: pageNum.value, pageSize: pageSize.value })
     records.value = page.list
     total.value = page.total
     // 批量解析封面中的私有媒体 URL（/api/media/{id}/content）
@@ -128,6 +146,23 @@ async function fetchData() {
 function reload() {
   pageNum.value = 1
   fetchData()
+}
+
+function formatActivityTime(book: UserBook) {
+  const values = [book.updateAt, book.latestChapterAt, book.createAt]
+    .filter((value): value is string => !!value)
+    .map(value => new Date(value))
+    .filter(value => !Number.isNaN(value.getTime()))
+    .sort((left, right) => right.getTime() - left.getTime())
+  if (!values.length) return '-'
+  return values[0].toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 async function createBook(value: UserBookSaveRequest) {
@@ -160,6 +195,10 @@ async function removeBook(book: UserBook) {
 }
 
 watch(pageNum, fetchData)
+watch(pageSize, () => {
+  if (pageNum.value === 1) fetchData()
+  else pageNum.value = 1
+})
 onMounted(() => {
   loadBookClassifies()
   fetchData()
@@ -191,7 +230,7 @@ useHead({ title: '我的书籍 - ch-wiki' })
 }
 .filter-bar {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 120px 120px 88px;
+  grid-template-columns: minmax(180px, 1fr) 120px 120px 130px 88px;
   gap: 12px;
   margin-bottom: 16px;
 }

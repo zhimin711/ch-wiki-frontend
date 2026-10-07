@@ -6,13 +6,22 @@
         <h1 class="page-title">藏书阁</h1>
         <p class="page-subtitle" v-if="total">共 {{ total }} 本书</p>
       </div>
-      <div class="type-filter">
-        <span class="filter-label">类型</span>
-        <el-segmented
-          v-model="bookType"
-          :options="bookTypeOptions"
-          @change="changeBookType"
-        />
+      <div class="book-filters">
+        <div v-if="isAuthenticated" class="type-filter scope-filter">
+          <el-segmented
+            v-model="libraryScope"
+            :options="scopeOptions"
+            @change="changeLibraryScope"
+          />
+        </div>
+        <div class="type-filter">
+          <span class="filter-label">类型</span>
+          <el-segmented
+            v-model="bookType"
+            :options="bookTypeOptions"
+            @change="changeBookType"
+          />
+        </div>
       </div>
     </div>
 
@@ -24,8 +33,11 @@
             <!-- 标题 + 状态徽章 -->
             <div class="book-header">
               <h3 class="book-title">{{ book.name || book.title || '未命名书籍' }}</h3>
+              <el-tag v-if="book.released === false" size="small" effect="plain" type="warning" class="status-tag">
+                未发布
+              </el-tag>
               <el-tag
-                v-if="book.status"
+                v-else-if="book.status"
                 size="small"
                 effect="plain"
                 :type="statusTagType(book.status)"
@@ -72,14 +84,25 @@
 
 <script setup lang="ts">
 import type { PublicBookCardDTO } from '~/services/public-api'
+import type { UserBook } from '~/services/user-book-api'
 
 const { getBooks } = usePublicApi()
-const books = ref<PublicBookCardDTO[]>([])
+const userBookApi = useUserBookApi()
+const auth = useAuth()
+const isAuthenticated = auth.isAuthenticated
+const route = useRoute()
+type LibraryBook = PublicBookCardDTO & { released?: boolean }
+const books = ref<LibraryBook[]>([])
 const pageNum = ref(1)
 const pageSize = 12
 const total = ref(0)
 const loading = ref(false)
 const bookType = ref('')
+const libraryScope = ref<'public' | 'unpublished'>('public')
+const scopeOptions = [
+  { label: '公开书籍', value: 'public' },
+  { label: '我的未发布', value: 'unpublished' },
+]
 const bookTypeOptions = [
   { label: '全部', value: '' },
   { label: '文字', value: '1' },
@@ -89,16 +112,35 @@ const bookTypeOptions = [
 async function fetchBooks() {
   loading.value = true
   try {
-    const result = await getBooks({
+    const params = {
       pageNum: pageNum.value,
       pageSize,
       type: bookType.value || undefined,
-    })
-    books.value = result.list || []
+    }
+    const result = libraryScope.value === 'unpublished'
+      ? await userBookApi.getBooks({ ...params, released: false, sort: 'activity' })
+      : await getBooks(params)
+    books.value = (result.list || []).map(toLibraryBook)
     total.value = result.total || 0
   } finally {
     loading.value = false
   }
+}
+
+function toLibraryBook(book: PublicBookCardDTO | UserBook): LibraryBook {
+  const latestChapterAt = book.latestChapterAt
+    ? new Date(book.latestChapterAt).getTime()
+    : null
+  return { ...book, latestChapterAt } as LibraryBook
+}
+
+async function changeLibraryScope(value: string | number | boolean) {
+  if (value === 'unpublished' && !isAuthenticated.value) {
+    libraryScope.value = 'public'
+    return
+  }
+  pageNum.value = 1
+  fetchBooks()
 }
 
 function changeBookType() {
@@ -106,7 +148,7 @@ function changeBookType() {
   fetchBooks()
 }
 
-function formatDate(ts: number | null | undefined) {
+function formatDate(ts: number | string | null | undefined) {
   if (!ts) return ''
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ''
@@ -127,7 +169,21 @@ function statusTagType(status: string): 'success' | 'primary' | 'warning' | 'inf
   return 'info'
 }
 
-onMounted(fetchBooks)
+onMounted(() => {
+  if (isAuthenticated.value && route.query.scope === 'unpublished') {
+    libraryScope.value = 'unpublished'
+    changeLibraryScope('unpublished')
+    return
+  }
+  fetchBooks()
+})
+
+watch(isAuthenticated, (authenticated) => {
+  if (authenticated || libraryScope.value !== 'unpublished') return
+  libraryScope.value = 'public'
+  pageNum.value = 1
+  fetchBooks()
+})
 
 useHead({ title: '藏书阁 - ch-wiki' })
 </script>
@@ -170,12 +226,29 @@ useHead({ title: '藏书阁 - ch-wiki' })
   gap: 10px;
   flex: 0 0 auto;
 }
+.book-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .filter-label {
   color: var(--color-text-secondary);
   font-size: 13px;
 }
 .type-filter :deep(.el-segmented__item) {
   min-width: 64px;
+}
+.scope-filter :deep(.el-segmented) {
+  width: 228px;
+}
+.scope-filter :deep(.el-segmented__item) {
+  min-width: 112px;
+}
+.scope-filter :deep(.el-segmented__item-label) {
+  overflow: visible;
+  text-overflow: clip;
 }
 .page-title {
   font-size: 26px;
@@ -350,11 +423,19 @@ useHead({ title: '藏书阁 - ch-wiki' })
   .type-filter {
     justify-content: space-between;
   }
+  .book-filters {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
   .type-filter :deep(.el-segmented) {
     flex: 1;
   }
   .type-filter :deep(.el-segmented__item) {
     min-width: 0;
+  }
+  .scope-filter :deep(.el-segmented) {
+    width: 100%;
   }
 }
 </style>

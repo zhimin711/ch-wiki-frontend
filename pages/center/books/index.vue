@@ -5,7 +5,18 @@
         <h1>我的书籍</h1>
         <p>管理书籍元信息、章节目录和正文。</p>
       </div>
-      <el-button type="primary" @click="createVisible = true">新建书籍</el-button>
+      <div class="page-actions">
+        <el-button
+          type="danger"
+          plain
+          :icon="Delete"
+          :loading="cleaningInvalid"
+          @click="removeInvalidBooks"
+        >
+          清理无效书籍
+        </el-button>
+        <el-button type="primary" :icon="Plus" @click="createVisible = true">新建书籍</el-button>
+      </div>
     </div>
 
     <div class="filter-bar">
@@ -87,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import { Delete, Plus } from '@element-plus/icons-vue'
 import { normalizeBackendUrl } from '~/composables/useAvatar'
 import { usePrivateMediaUrlMap } from '~/composables/usePrivateMediaUrl'
 import type { APIClassifyDTO } from '~/services/public-api'
@@ -97,6 +109,7 @@ definePageMeta({ layout: 'center', middleware: 'auth' })
 const api = useUserBookApi()
 const loading = ref(false)
 const creating = ref(false)
+const cleaningInvalid = ref(false)
 const createVisible = ref(false)
 const records = ref<UserBook[]>([])
 const bookClassifies = ref<APIClassifyDTO[]>([])
@@ -194,6 +207,31 @@ async function removeBook(book: UserBook) {
   }
 }
 
+async function removeInvalidBooks() {
+  try {
+    await ElMessageBox?.confirm?.(
+      '将永久删除来源为网络且没有任何章节的书籍，是否继续？',
+      '清理无效书籍',
+      { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+
+  cleaningInvalid.value = true
+  try {
+    await api.deleteInvalidBooks()
+    ElMessage?.success?.('无效书籍清理完成')
+    if (pageNum.value === 1) await fetchData()
+    else pageNum.value = 1
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '无效书籍清理失败'
+    ElMessage?.error?.(message)
+  } finally {
+    cleaningInvalid.value = false
+  }
+}
+
 watch(pageNum, fetchData)
 watch(pageSize, () => {
   if (pageNum.value === 1) fetchData()
@@ -227,6 +265,11 @@ useHead({ title: '我的书籍 - ch-wiki' })
   margin: 0;
   color: #909399;
   font-size: 13px;
+}
+.page-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 .filter-bar {
   display: grid;
@@ -288,6 +331,10 @@ useHead({ title: '我的书籍 - ch-wiki' })
   .page-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .page-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
 </style>

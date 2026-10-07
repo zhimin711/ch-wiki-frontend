@@ -166,6 +166,11 @@ export function useUserBookApi() {
       return extractData(data)
     },
 
+    async deleteInvalidBooks() {
+      const { data } = await client.delete<ApiResult<boolean>>('/api/user/books/invalid')
+      return requireData(data) === true
+    },
+
     async fixCatalog(bookId: number) {
       const { data } = await client.post<ApiResult<boolean>>(`/api/user/books/${bookId}/fix`)
       return extractData(data)

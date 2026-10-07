@@ -79,6 +79,7 @@ export function normalizeBackendUrl(url: string | null | undefined): string {
   const value = url.trim()
   if (!value) return ''
   if (/^(https?:)?\/\//i.test(value) || /^(data|blob):/i.test(value)) return value
+  if (value.startsWith('/books/')) return `/upload${value}`
   if (value.startsWith('/')) return value
   return `/${value}`
 }

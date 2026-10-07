@@ -56,6 +56,7 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('auth_nickname', data.nickname || data.username)
         if (data.avatar) localStorage.setItem('auth_avatar', data.avatar)
         else localStorage.removeItem('auth_avatar')
+        syncAuthCookie(data.accessToken)
       }
     },
 
